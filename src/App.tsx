@@ -22,6 +22,16 @@ const SHOP_ITEMS = [
   { id: 'power', name: '強力藥水', icon: '🍷', cost: 20, description: '在 3 回合內增加我方 1 點攻擊力。' }
 ] as const;
 
+const ELEMENT_BACKGROUNDS: Record<ElementType, string> = {
+  earth: '背景_草原.png',
+  water: '背景_河岸.png',
+  fire: '背景_火山.png',
+  wind: '背景_荒原.png',
+  light: '背景_神殿.png',
+  dark: '背景_洞穴.png'
+};
+
+
 // Stats growth formulas
 function getMonsterStats(level: number) {
   return {
@@ -81,6 +91,8 @@ export default function App() {
   const [isEnemyDefeated, setIsEnemyDefeated] = useState(false);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
+  const [battleBackground, setBattleBackground] = useState<string>('背景_競技場.png');
+
 
   // Battle History (for wrong questions accumulation)
   const [wrongAnswersInBattle, setWrongAnswersInBattle] = useState<Question[]>([]);
@@ -162,6 +174,15 @@ export default function App() {
     setEnemyEffects([]);
     setWrongAnswersInBattle([]);
     
+    // Pick 1 of 3 backgrounds randomly: player element field, enemy element field, or arena
+    const candidates = [
+      ELEMENT_BACKGROUNDS[playerMonster.element] || '背景_競技場.png',
+      ELEMENT_BACKGROUNDS[enemy.element] || '背景_競技場.png',
+      '背景_競技場.png'
+    ];
+    const chosenBg = candidates[Math.floor(Math.random() * candidates.length)];
+    setBattleBackground(chosenBg);
+
     // Reset item buff turns and state flags
     setAtkBuffTurns(0);
     setDefBuffTurns(0);
@@ -1115,6 +1136,7 @@ export default function App() {
         {gameState === 'battle' && playerMonster && enemyMonster && currentProfile && (
           <div className="w-full flex flex-col gap-3 animate-pop my-auto">
             <BattleArena
+              backgroundImage={battleBackground}
               playerMonster={playerMonster}
               playerHp={playerHp}
               playerLevel={currentProfile.monsterLevels[playerMonster.id] || 1}

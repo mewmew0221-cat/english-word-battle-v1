@@ -8,6 +8,7 @@ interface StatusEffect {
 }
 
 interface BattleArenaProps {
+  backgroundImage: string;
   playerMonster: Monster;
   playerHp: number;
   playerLevel: number;
@@ -85,6 +86,7 @@ const getMonsterStats = (level: number) => {
 };
 
 export const BattleArena: React.FC<BattleArenaProps> = ({
+  backgroundImage,
   playerMonster,
   playerHp,
   playerLevel,
@@ -123,19 +125,6 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
     return 'hp-glow-high';
   };
 
-  // Map opponent element to cartoon background class
-  const getBackgroundClass = (element: ElementType) => {
-    switch (element) {
-      case 'earth': return 'bg-grassland';
-      case 'water': return 'bg-waterfall';
-      case 'fire': return 'bg-volcano';
-      case 'wind': return 'bg-wilderness';
-      case 'light': return 'bg-temple';
-      case 'dark': return 'bg-cave';
-      default: return '';
-    }
-  };
-
   return (
     <div className="w-full flex flex-col gap-4 select-none">
       {/* Top Bar: Stage & Round (Enlarged Text) */}
@@ -153,7 +142,15 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
       </div>
 
       {/* Main Symmetrical Battle Screen (Expanded height to 380px/480px to hold larger sprites) */}
-      <div className={`relative w-full h-[380px] md:h-[480px] border border-white/5 rounded-3xl overflow-hidden flex flex-row items-center justify-between p-6 shadow-2xl transition-all duration-500 ${getBackgroundClass(enemyMonster.element)}`}>
+      <div 
+        className="relative w-full h-[380px] md:h-[480px] border border-white/5 rounded-3xl overflow-hidden flex flex-row items-center justify-between p-6 shadow-2xl transition-all duration-500"
+        style={{
+          backgroundImage: `url('./${backgroundImage}')`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat'
+        }}
+      >
         {/* Background Overlay for Cartoon Depth */}
         <div className="absolute inset-0 bg-black/15 pointer-events-none"></div>
 
