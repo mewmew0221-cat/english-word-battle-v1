@@ -200,5 +200,77 @@ export const saveSystem = {
       }
     }
     return items;
+  },
+
+  // Parse JSON text into custom library questions
+  parseJSONText(text: string): CustomLibraryItem[] {
+    try {
+      const parsed = JSON.parse(text);
+      if (Array.isArray(parsed)) {
+        return parsed.filter((item: any) => {
+          return typeof item.question === 'string' &&
+            typeof item.answer === 'string' &&
+            (item.type === 'attack' || item.type === 'defense') &&
+            Array.isArray(item.distractors) &&
+            item.distractors.length >= 4;
+        }).map((item: any) => ({
+          question: item.question,
+          answer: item.answer,
+          distractors: item.distractors.slice(0, 4),
+          type: item.type
+        })) as CustomLibraryItem[];
+      }
+    } catch (e) {
+      console.error('Failed to parse JSON library text', e);
+    }
+    return [];
+  },
+
+  // Sync / pull custom libraries from Google Apps Script endpoint
+  async pullLibrariesFromGAS(gasUrl: string): Promise<{ success: boolean; message: string; libraries?: Record<string, CustomLibrary> }> {
+    if (!gasUrl || !gasUrl.trim().startsWith('http')) {
+      return { success: false, message: '請先設定正確的 GAS 網址。' };
+    }
+
+    try {
+      const url = new URL(gasUrl);
+      url.searchParams.append('action', 'getLibraries');
+
+      const response = await fetch(url.toString(), {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        return { success: false, message: `伺服器回應錯誤: ${response.status}` };
+      }
+
+      const parsed = await response.json();
+      if (parsed && typeof parsed === 'object') {
+        const validated: Record<string, CustomLibrary> = {};
+        for (const [key, lib] of Object.entries(parsed)) {
+          if (lib && typeof lib === 'object' && 'id' in lib && 'name' in lib && 'questions' in (lib as any)) {
+            const castedLib = lib as any;
+            validated[key] = {
+              id: castedLib.id,
+              name: castedLib.name,
+              questions: (castedLib.questions as any[]).map(q => ({
+                question: q.question || '',
+                answer: q.answer || '',
+                distractors: Array.isArray(q.distractors) ? q.distractors : [],
+                type: q.type === 'defense' ? 'defense' : 'attack'
+              }))
+            };
+          }
+        }
+        return { success: true, message: '雲端字庫拉取成功！', libraries: validated };
+      }
+      return { success: false, message: '雲端回傳格式不正確。' };
+    } catch (error) {
+      console.error('Failed to pull libraries from GAS', error);
+      return { success: false, message: `連線失敗: ${(error as Error).message}` };
+    }
   }
 };
