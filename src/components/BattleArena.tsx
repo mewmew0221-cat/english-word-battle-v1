@@ -165,6 +165,17 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
               </span>
             </div>
 
+            {/* HP Text above HP Bar (Enlarged HP Title and Numbers) */}
+            <div className="flex justify-between items-end mt-2">
+              <span className="text-md md:text-lg text-rose-400 font-extrabold tracking-wider">HP</span>
+              <div className="flex items-baseline gap-1">
+                <span className={`text-3xl md:text-4xl font-black tracking-tight ${getHpGlowClass(playerHp, playerStats.maxHp)}`}>
+                  {playerHp}
+                </span>
+                <span className="text-white/40 text-lg md:text-xl font-bold">/ {playerStats.maxHp}</span>
+              </div>
+            </div>
+
             {/* HP Bar (Larger Height) */}
             <div className="hp-container-large mt-1">
               <div
@@ -172,22 +183,21 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
                 style={{ width: `${(playerHp / playerStats.maxHp) * 100}%` }}
               ></div>
             </div>
-            {/* Massive HP Text Redesigned & Enlarged */}
-            <div className="flex justify-between items-end mt-1.5">
-              <span className="text-sm md:text-base text-white/50 font-black tracking-widest uppercase">HP</span>
-              <div className="flex items-baseline gap-1">
-                <span className={`text-4xl md:text-5xl font-black tracking-tight ${getHpGlowClass(playerHp, playerStats.maxHp)}`}>
-                  {playerHp}
-                </span>
-                <span className="text-white/30 text-xl md:text-2xl font-bold">/ {playerStats.maxHp}</span>
-              </div>
-            </div>
 
-            {/* Level, ATK, DEF Display */}
-            <div className="flex justify-between items-center bg-white/5 border border-white/5 px-2.5 py-1.5 rounded-lg mt-2 text-xs md:text-sm font-bold text-white/80">
-              <span>等級: <strong className="text-indigo-400">Lv.{playerLevel}</strong></span>
-              <span>⚔️ {playerStats.atk}</span>
-              <span>🛡️ {playerStats.def}</span>
+            {/* Level, ATK, DEF Display Grid (Rearranged and Enlarged) */}
+            <div className="grid grid-cols-3 gap-2 mt-3 w-full text-center">
+              <div className="bg-white/5 border border-white/10 rounded-xl py-2 px-1 flex flex-col justify-center items-center">
+                <span className="text-white/40 text-[11px] md:text-xs font-bold uppercase tracking-wider">等級</span>
+                <span className="text-indigo-300 text-base md:text-lg font-black mt-0.5">Lv.{playerLevel}</span>
+              </div>
+              <div className="bg-white/5 border border-white/10 rounded-xl py-2 px-1 flex flex-col justify-center items-center">
+                <span className="text-white/40 text-[11px] md:text-xs font-bold uppercase tracking-wider">攻擊</span>
+                <span className="text-rose-400 text-base md:text-lg font-black mt-0.5">⚔️ {playerStats.atk}</span>
+              </div>
+              <div className="bg-white/5 border border-white/10 rounded-xl py-2 px-1 flex flex-col justify-center items-center">
+                <span className="text-white/40 text-[11px] md:text-xs font-bold uppercase tracking-wider">防禦</span>
+                <span className="text-emerald-400 text-base md:text-lg font-black mt-0.5">🛡️ {playerStats.def}</span>
+              </div>
             </div>
 
             {/* Buffs & Status effects (Enlarged) */}
@@ -226,18 +236,18 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
           </div>
         </div>
 
-        {/* 2. CENTER: VS Badge & Round Phase (Enlarged VS and Badge) */}
+        {/* 2. CENTER: VS Badge & Round Phase (Enlarged VS and Badge with Premium Styling) */}
         <div className="flex flex-col justify-center items-center z-10 px-2 gap-4">
-          <div className="flex items-center justify-center bg-indigo-950/85 border-2 border-indigo-500/50 text-white font-black rounded-full w-16 h-16 md:w-20 md:h-20 shadow-lg text-3xl md:text-4xl tracking-tighter animate-pulse">
+          <div className="vs-badge-epic">
             VS
           </div>
           {phase && (
-            <div className={`px-6 py-2.5 rounded-full text-lg md:text-2xl font-black tracking-wider border-2 shadow-2xl animate-bounce select-none ${
+            <div className={`phase-banner-epic ${
               phase === 'player-start' || phase === 'question-attack'
-                ? 'bg-emerald-500 border-emerald-300 text-white text-shadow-glow'
+                ? 'player-attack'
                 : phase === 'question-defense'
-                ? 'bg-amber-500 border-amber-300 text-white text-shadow-glow'
-                : 'bg-indigo-600 border-indigo-400 text-white'
+                ? 'player-defense'
+                : 'settlement'
             }`}>
               {phase === 'player-start' || phase === 'question-attack' ? '我方攻擊' : phase === 'question-defense' ? '我方防守' : '結算中'}
             </div>
@@ -255,29 +265,39 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
               <span className="font-black text-white text-2xl md:text-3xl">{enemyMonster.name.split(' ')[0]}</span>
             </div>
 
-            {/* HP Bar */}
+            {/* HP Text above HP Bar (Enlarged HP Title and Numbers) */}
+            <div className="flex justify-between items-end mt-2">
+              <div className="flex items-baseline gap-1">
+                <span className={`text-3xl md:text-4xl font-black tracking-tight ${getHpGlowClass(enemyHp, enemyStats.maxHp)}`}>
+                  {enemyHp}
+                </span>
+                <span className="text-white/40 text-lg md:text-xl font-bold">/ {enemyStats.maxHp}</span>
+              </div>
+              <span className="text-md md:text-lg text-rose-400 font-extrabold tracking-wider">HP</span>
+            </div>
+
+            {/* HP Bar (Larger Height) */}
             <div className="hp-container-large mt-1">
               <div
                 className={`hp-bar ${getHpColorClass(enemyHp, enemyStats.maxHp)}`}
                 style={{ width: `${(enemyHp / enemyStats.maxHp) * 100}%` }}
               ></div>
             </div>
-            {/* Massive HP Text Redesigned & Enlarged */}
-            <div className="flex justify-between items-end mt-1.5">
-              <div className="flex items-baseline gap-1">
-                <span className={`text-4xl md:text-5xl font-black tracking-tight ${getHpGlowClass(enemyHp, enemyStats.maxHp)}`}>
-                  {enemyHp}
-                </span>
-                <span className="text-white/30 text-xl md:text-2xl font-bold">/ {enemyStats.maxHp}</span>
-              </div>
-              <span className="text-sm md:text-base text-white/50 font-black tracking-widest uppercase">HP</span>
-            </div>
 
-            {/* Level, ATK, DEF Display */}
-            <div className="flex justify-between items-center bg-white/5 border border-white/5 px-2.5 py-1.5 rounded-lg mt-2 text-xs md:text-sm font-bold text-white/80">
-              <span>等級: <strong className="text-indigo-400">Lv.{enemyLevel}</strong></span>
-              <span>⚔️ {enemyStats.atk}</span>
-              <span>🛡️ {enemyStats.def}</span>
+            {/* Level, ATK, DEF Display Grid (Rearranged and Enlarged) */}
+            <div className="grid grid-cols-3 gap-2 mt-3 w-full text-center">
+              <div className="bg-white/5 border border-white/10 rounded-xl py-2 px-1 flex flex-col justify-center items-center">
+                <span className="text-white/40 text-[11px] md:text-xs font-bold uppercase tracking-wider">等級</span>
+                <span className="text-indigo-300 text-base md:text-lg font-black mt-0.5">Lv.{enemyLevel}</span>
+              </div>
+              <div className="bg-white/5 border border-white/10 rounded-xl py-2 px-1 flex flex-col justify-center items-center">
+                <span className="text-white/40 text-[11px] md:text-xs font-bold uppercase tracking-wider">攻擊</span>
+                <span className="text-rose-400 text-base md:text-lg font-black mt-0.5">⚔️ {enemyStats.atk}</span>
+              </div>
+              <div className="bg-white/5 border border-white/10 rounded-xl py-2 px-1 flex flex-col justify-center items-center">
+                <span className="text-white/40 text-[11px] md:text-xs font-bold uppercase tracking-wider">防禦</span>
+                <span className="text-emerald-400 text-base md:text-lg font-black mt-0.5">🛡️ {enemyStats.def}</span>
+              </div>
             </div>
 
             {/* Buffs & Status effects (Enlarged) */}
