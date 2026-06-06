@@ -13,7 +13,7 @@ interface ActionPanelProps {
   onUseSkill: () => void;
   onStartAttack: () => void;
   onSelectAnswer: (answer: string) => void;
-  onContinue: () => void;
+  onOpenInventory?: () => void;
 }
 
 export const ActionPanel: React.FC<ActionPanelProps> = ({
@@ -27,7 +27,7 @@ export const ActionPanel: React.FC<ActionPanelProps> = ({
   onUseSkill,
   onStartAttack,
   onSelectAnswer,
-  onContinue
+  onOpenInventory
 }) => {
   return (
     <div className="glass-panel battle-action-panel w-full flex flex-col gap-4 animate-pop justify-between">
@@ -35,39 +35,51 @@ export const ActionPanel: React.FC<ActionPanelProps> = ({
       {phase === 'player-start' && (
         <div className="flex flex-col gap-5 items-center justify-center py-4">
           <p className="text-white/70 text-center text-base md:text-lg max-w-xl font-bold leading-relaxed">
-            你可以先施放強力的屬性技能（每場限用一次），或是直接開始挑戰英文單字題進行攻擊！
+            你可以先施放強力的屬性技能，使用道具進行輔助，或是直接開始挑戰英文單字題進行攻擊！
           </p>
 
-          <div className="flex flex-col md:flex-row gap-5 w-full max-w-2xl justify-center mt-1">
-            {/* Skill Button (Enlarged) */}
-            <button
-              onClick={onUseSkill}
-              disabled={isSkillUsed}
-              className={`flex-1 flex flex-col items-center p-5 border-2 rounded-2xl transition-all ${
-                isSkillUsed
-                  ? 'skill-phantom'
-                  : 'bg-indigo-950/20 border-indigo-500/40 hover:border-indigo-400 hover:bg-indigo-950/40 active:scale-98 cursor-pointer shadow-lg'
-              }`}
-            >
-              <span className="font-black text-2xl md:text-3xl text-indigo-300 flex items-center gap-2">
-                ⚡ 技能：{skill.name}
-              </span>
-              <span className="text-md md:text-lg text-white/60 mt-2 text-center font-bold">
-                {skill.description}
-              </span>
-              <span className="text-xs mt-3 px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-400 font-black">
-                {isSkillUsed ? '已施放' : '點擊使用 (限一次)'}
-              </span>
-            </button>
-
-            {/* Attack Button (Enlarged) */}
+          <div className="flex flex-col gap-4 w-full max-w-4xl mt-1">
+            {/* Attack Button (Enlarged and full width at top) */}
             <button
               onClick={onStartAttack}
-              className="flex-1 btn-primary text-3xl md:text-4xl font-black flex flex-col items-center justify-center p-5 shadow-2xl"
+              className="w-full btn-primary text-2xl md:text-3xl font-black py-4 shadow-2xl rounded-2xl cursor-pointer"
             >
-              <span>⚔️ 開始攻擊</span>
-              <span className="text-md md:text-lg text-indigo-200 font-bold mt-2">進入單字填充挑戰</span>
+              <span>⚔️ 開始答題攻擊</span>
             </button>
+
+            {/* Bottom Row: Skill and Items side-by-side */}
+            <div className="flex flex-row gap-4 w-full">
+              {/* Skill Button */}
+              <button
+                onClick={onUseSkill}
+                disabled={isSkillUsed}
+                className={`flex-1 flex flex-col items-center justify-center p-3 border-2 rounded-2xl transition-all ${
+                  isSkillUsed
+                    ? 'skill-phantom'
+                    : 'bg-indigo-950/20 border-indigo-500/40 hover:border-indigo-400 hover:bg-indigo-950/40 active:scale-98 cursor-pointer shadow-lg'
+                }`}
+              >
+                <span className="font-black text-lg md:text-xl text-indigo-300 flex items-center gap-1.5">
+                  ⚡ 技能: {skill.name}
+                </span>
+                <span className="text-xs text-white/50 mt-1 text-center hidden md:inline">
+                  {skill.description}
+                </span>
+              </button>
+
+              {/* Items Button */}
+              {onOpenInventory && (
+                <button
+                  onClick={onOpenInventory}
+                  className="flex-1 btn-secondary text-lg md:text-xl font-black flex flex-col items-center justify-center p-3 shadow-lg bg-amber-500/10 border-amber-500/30 text-amber-300 hover:bg-amber-500/20 cursor-pointer rounded-2xl"
+                >
+                  <span className="flex items-center gap-1.5">🎒 使用道具</span>
+                  <span className="text-xs text-amber-400/60 font-bold mt-1 hidden md:inline">
+                    使用藥水與盾牌輔助
+                  </span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -137,15 +149,6 @@ export const ActionPanel: React.FC<ActionPanelProps> = ({
             })}
           </div>
 
-          {/* Continue Action (Enlarged) */}
-          {isAnswered && (
-            <div className="w-full flex justify-end mt-2 animate-pop">
-              <button onClick={onContinue} className="btn-primary flex items-center gap-2 px-10 py-4 text-xl font-black shadow-2xl">
-                <span>繼續</span>
-                <span>➔</span>
-              </button>
-            </div>
-          )}
         </div>
       )}
 

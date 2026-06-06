@@ -32,6 +32,10 @@ export interface PlayerSave {
   customLibraries: Record<string, CustomLibrary>;
   gasUrl: string;
   selectedMonsterId: string;
+  // New Fields
+  monsterLevels: Record<string, number>;
+  inventory: Record<string, number>;
+  monsterExpPool: number;
 }
 
 const STORAGE_PREFIX = 'eng_battle_save_';
@@ -46,7 +50,22 @@ export const DEFAULT_SAVE = (name: string): PlayerSave => ({
   wrongQuestions: {},
   customLibraries: {},
   gasUrl: '',
-  selectedMonsterId: 'leafurtle'
+  selectedMonsterId: 'leafurtle',
+  monsterLevels: {
+    leafurtle: 1,
+    aquacat: 1,
+    pyrofox: 1,
+    cloudy: 1,
+    sunlamb: 1,
+    shadowing: 1
+  },
+  inventory: {
+    potion: 0,
+    super_potion: 0,
+    shield: 0,
+    power: 0
+  },
+  monsterExpPool: 0
 });
 
 export const saveSystem = {
@@ -68,10 +87,20 @@ export const saveSystem = {
     }
     try {
       const parsed = JSON.parse(data) as PlayerSave;
+      const defaultSave = DEFAULT_SAVE(name);
       // Merge defaults in case schema updates
       return {
-        ...DEFAULT_SAVE(name),
-        ...parsed
+        ...defaultSave,
+        ...parsed,
+        monsterLevels: {
+          ...defaultSave.monsterLevels,
+          ...(parsed.monsterLevels || {})
+        },
+        inventory: {
+          ...defaultSave.inventory,
+          ...(parsed.inventory || {})
+        },
+        monsterExpPool: parsed.monsterExpPool !== undefined ? parsed.monsterExpPool : 0
       };
     } catch (e) {
       console.error('Failed to parse save data', e);

@@ -852,5 +852,102 @@ body {
   max-width: 320px;
 }
 
+/* Defeat Fly Out Animation */
+@keyframes enemy-fly-out {
+  0% {
+    transform: scale(1) translate(0, 0) rotate(0deg);
+    opacity: 1;
+    filter: brightness(1);
+  }
+  30% {
+    transform: scale(1.1) translate(-20px, 10px) rotate(-15deg);
+    opacity: 1;
+    filter: brightness(1.3);
+  }
+  100% {
+    transform: scale(0.05) translate(600px, -600px) rotate(1440deg);
+    opacity: 0;
+    filter: blur(4px) brightness(1.5);
+  }
+}
+.animate-fly-out {
+  animation: enemy-fly-out 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  pointer-events: none;
+  z-index: 50 !important;
+}
+
+/* Slide Select Carousel Layout */
+.carousel-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  position: relative;
+}
+.carousel-card-wrapper {
+  flex: 1;
+  width: 100%;
+  perspective: 1000px;
+  touch-action: pan-y; /* Allow vertical scrolling, intercept horizontal for swipe */
+}
+.carousel-nav-btn {
+  width: 52px;
+  height: 52px;
+  background: rgba(26, 29, 46, 0.9);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
+  font-size: 1.5rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  user-select: none;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  z-index: 10;
+}
+.carousel-nav-btn:hover {
+  background: var(--accent-color);
+  border-color: rgba(99, 102, 241, 0.4);
+  color: white;
+  transform: scale(1.1);
+  box-shadow: 0 6px 15px rgba(99, 102, 241, 0.4);
+}
+.carousel-nav-btn:active {
+  transform: scale(0.9);
+}
+
+/* shop UI layout */
+.shop-grid {
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 16px;
+}
+@media (min-width: 640px) {
+  .shop-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.shop-item-card {
+  background: rgba(26, 29, 46, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  transition: all 0.2s;
+}
+.shop-item-card:hover {
+  border-color: rgba(99, 102, 241, 0.3);
+  background: rgba(30, 34, 54, 0.9);
+}
+
+
 
 

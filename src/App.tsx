@@ -5,6 +5,7 @@ import { type PlayerSave, saveSystem } from './utils/saveSystem';
 import { BattleArena } from './components/BattleArena';
 import { ActionPanel } from './components/ActionPanel';
 import { ParentDashboard } from './components/ParentDashboard';
+import { soundManager } from './utils/soundManager';
 
 type GameState = 'profile-select' | 'monster-select' | 'library-select' | 'battle' | 'game-over';
 
@@ -12,6 +13,22 @@ interface StatusEffect {
   name: string;
   type: 'petrify' | 'inspiration' | 'burn' | 'shock';
   duration: number;
+}
+
+const SHOP_ITEMS = [
+  { id: 'potion', name: '治療劑', icon: '🧪', cost: 15, description: '立即回復自身 2 點血量。' },
+  { id: 'super_potion', name: '強力治療劑', icon: '🧪✨', cost: 35, description: '立即回復自身 5 點血量。' },
+  { id: 'shield', name: '防護盾', icon: '🛡️', cost: 20, description: '在 3 回合內增加我方 1 點防禦力。' },
+  { id: 'power', name: '強力藥水', icon: '🍷', cost: 20, description: '在 3 回合內增加我方 1 點攻擊力。' }
+] as const;
+
+// Stats growth formulas
+function getMonsterStats(level: number) {
+  return {
+    atk: 1 + Math.floor((level - 1) / 3),
+    def: 1 + Math.floor((level - 1) / 4),
+    maxHp: level === 10 ? 20 : 10 + (level - 1)
+  };
 }
 
 export default function App() {
@@ -54,8 +71,30 @@ export default function App() {
   const [isPlayerAttacking, setIsPlayerAttacking] = useState(false);
   const [isEnemyAttacking, setIsEnemyAttacking] = useState(false);
 
+  // New Game Feature States (Antigravity additions)
+  const [carouselIndex, setCarouselIndex] = useState(0);
+  const [enemyLevelSelection, setEnemyLevelSelection] = useState<'match' | number>('match');
+  const [isShopOpen, setIsShopOpen] = useState(false);
+  const [atkBuffTurns, setAtkBuffTurns] = useState(0);
+  const [defBuffTurns, setDefBuffTurns] = useState(0);
+  const [isEnemyDefending, setIsEnemyDefending] = useState(false);
+  const [isEnemyDefeated, setIsEnemyDefeated] = useState(false);
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const [isInventoryOpen, setIsInventoryOpen] = useState(false);
+
   // Battle History (for wrong questions accumulation)
   const [wrongAnswersInBattle, setWrongAnswersInBattle] = useState<Question[]>([]);
+
+  // Monster Selection Navigation
+  const monsterList = Object.values(MONSTERS);
+  const handleNextMonster = () => {
+    soundManager.playClick();
+    setCarouselIndex((prev) => (prev + 1) % monsterList.length);
+  };
+  const handlePrevMonster = () => {
+    soundManager.playClick();
+    setCarouselIndex((prev) => (prev - 1 + monsterList.length) % monsterList.length);
+  };
 
   // Load profiles on start
   useEffect(() => {
@@ -75,6 +114,7 @@ export default function App() {
     if (!newProfileName.trim()) return alert('請輸入姓名！');
     if (profiles.includes(newProfileName.trim())) return alert('角色名字已存在！');
 
+    soundManager.playClick();
     const newSave = saveSystem.loadProfile(newProfileName.trim());
     newSave.grade = selectedGrade;
     handleProfileSave(newSave);
@@ -91,23 +131,44 @@ export default function App() {
     setGameState('library-select');
   };
 
+  // State to store current battle enemy level
+  const [battleEnemyLevel, setBattleEnemyLevel] = useState(1);
+
   const handleStartBattle = () => {
-    if (!playerMonster) return;
+    if (!playerMonster || !currentProfile) return;
+
+    soundManager.playClick();
 
     // Pick a random enemy monster
     const monsterKeys = Object.keys(MONSTERS);
     const randomKey = monsterKeys[Math.floor(Math.random() * monsterKeys.length)];
     const enemy = MONSTERS[randomKey];
 
+    // Determine levels
+    const pLvl = currentProfile.monsterLevels[playerMonster.id] || 1;
+    const eLvl = enemyLevelSelection === 'match' ? pLvl : enemyLevelSelection;
+    setBattleEnemyLevel(eLvl);
+
+    // Calculate max HPs
+    const pStats = getMonsterStats(pLvl);
+    const eStats = getMonsterStats(eLvl);
+
     setEnemyMonster(enemy);
     setRound(1);
-    setPlayerHp(playerMonster.maxHp);
-    setEnemyHp(enemy.maxHp);
+    setPlayerHp(pStats.maxHp);
+    setEnemyHp(eStats.maxHp);
     setIsSkillUsed(false);
     setPlayerEffects([]);
     setEnemyEffects([]);
     setWrongAnswersInBattle([]);
-    setBattleLog(`戰鬥開始！我方「${playerMonster.name}」對抗敵方「${enemy.name}」！`);
+    
+    // Reset item buff turns and state flags
+    setAtkBuffTurns(0);
+    setDefBuffTurns(0);
+    setIsEnemyDefending(false);
+    setIsEnemyDefeated(false);
+
+    setBattleLog(`戰鬥開始！我方「${playerMonster.name.split(' ')[0]} (Lv.${pLvl})」對抗敵方「${enemy.name.split(' ')[0]} (Lv.${eLvl})」！`);
     setBattlePhase('player-start');
     setGameState('battle');
   };
@@ -153,38 +214,122 @@ export default function App() {
     return [];
   };
 
+  // Item activation handler in battle
+  const handleUseItem = (itemId: string) => {
+    if (!currentProfile || !playerMonster) return;
+    const qty = currentProfile.inventory[itemId] || 0;
+    if (qty <= 0) return;
+
+    const pLvl = currentProfile.monsterLevels[playerMonster.id] || 1;
+    const maxHp = getMonsterStats(pLvl).maxHp;
+
+    const newInventory = {
+      ...currentProfile.inventory,
+      [itemId]: qty - 1
+    };
+
+    switch (itemId) {
+      case 'potion':
+        soundManager.playHeal();
+        setPlayerHp((prev) => Math.min(maxHp, prev + 2));
+        setBattleLog("🧪 使用了治療劑！回復了我方 2 點血量。");
+        break;
+      case 'super_potion':
+        soundManager.playHeal();
+        setPlayerHp((prev) => Math.min(maxHp, prev + 5));
+        setBattleLog("🧪✨ 使用了強力治療劑！回復了我方 5 點血量。");
+        break;
+      case 'shield':
+        soundManager.playDefend();
+        setDefBuffTurns(3);
+        setBattleLog("🛡️ 使用了防護盾！3 回合內我方防禦力 +1。");
+        break;
+      case 'power':
+        soundManager.playAttack();
+        setAtkBuffTurns(3);
+        setBattleLog("🍷 使用了強力藥水！3 回合內我方攻擊力 +1。");
+        break;
+    }
+
+    handleProfileSave({
+      ...currentProfile,
+      inventory: newInventory
+    });
+
+    setIsInventoryOpen(false);
+
+    // After item is used, immediately start the attack phase after delay
+    setTimeout(() => {
+      handleStartAttack();
+    }, 1200);
+  };
+
+  const handleBuyItem = (itemId: string) => {
+    if (!currentProfile) return;
+    const item = SHOP_ITEMS.find((i) => i.id === itemId);
+    if (!item) return;
+
+    if (currentProfile.gold < item.cost) {
+      soundManager.playClick();
+      alert('金幣不足！快去對戰賺取金幣吧。');
+      return;
+    }
+
+    soundManager.playLevelUp(); // Play level up / purchase chime
+    const newGold = currentProfile.gold - item.cost;
+    const newInventory = {
+      ...currentProfile.inventory,
+      [itemId]: (currentProfile.inventory[itemId] || 0) + 1
+    };
+
+    handleProfileSave({
+      ...currentProfile,
+      gold: newGold,
+      inventory: newInventory
+    });
+  };
+
   // 1. Skill Activation
   const handleUseSkill = () => {
-    if (!playerMonster || isSkillUsed || !enemyMonster) return;
+    if (!playerMonster || isSkillUsed || !enemyMonster || !currentProfile) return;
 
     setIsSkillUsed(true);
     const skill = playerMonster.skill;
+    const pLvl = currentProfile.monsterLevels[playerMonster.id] || 1;
+    const maxHp = getMonsterStats(pLvl).maxHp;
 
     // Apply immediate or turn-based effects
     switch (skill.effectType) {
       case 'heal':
-        setPlayerHp((prev) => Math.min(playerMonster.maxHp, prev + skill.value));
+        soundManager.playHeal();
+        setPlayerHp((prev) => Math.min(maxHp, prev + skill.value));
         setBattleLog(`✨ 施放【${skill.name}】！回復了我方 2 點血量。`);
         break;
       case 'curse':
+        soundManager.playAttack();
+        setTimeout(() => soundManager.playHit(), 300);
         setEnemyHp((prev) => Math.max(0, prev - skill.value));
         setIsEnemyHit(true);
         setTimeout(() => setIsEnemyHit(false), 500);
         setBattleLog(`💀 施放【${skill.name}】！對手扣除 2 點血量。`);
         break;
       case 'petrify':
+        soundManager.playClick();
         setEnemyEffects((prev) => [...prev, { name: skill.name, type: 'petrify', duration: skill.duration }]);
         setBattleLog(`❄️ 施放【${skill.name}】！對手進入石化狀態（三回合無法攻擊）。`);
         break;
       case 'inspiration':
+        soundManager.playClick();
         setPlayerEffects((prev) => [...prev, { name: skill.name, type: 'inspiration', duration: skill.duration }]);
         setBattleLog(`💡 施放【${skill.name}】！心無旁鶩，答題選項降為二選一！`);
         break;
       case 'burn':
+        soundManager.playClick();
         setPlayerEffects((prev) => [...prev, { name: skill.name, type: 'burn', duration: skill.duration }]);
         setBattleLog(`🔥 施放【${skill.name}】！火元素爆發，三回合內攻擊力加 1！`);
         break;
       case 'shock':
+        soundManager.playClick();
         setPlayerEffects((prev) => [...prev, { name: skill.name, type: 'shock', duration: skill.duration }]);
         setBattleLog(`⚡ 施放【${skill.name}】！雷電護盾就緒，防守成功將引發反擊！`);
         break;
@@ -200,6 +345,8 @@ export default function App() {
   const handleStartAttack = () => {
     if (!playerMonster || !enemyMonster) return;
 
+    soundManager.playClick();
+
     const pool = getQuestionPool('attack');
     if (pool.length === 0) {
       alert('該題庫無可用的單字(攻擊)題目，已自動切換回預設題庫。');
@@ -209,6 +356,9 @@ export default function App() {
 
     const randomQuestion = pool[Math.floor(Math.random() * pool.length)];
     setCurrentQuestion(randomQuestion);
+
+    // Reset enemy defense state
+    setIsEnemyDefending(false);
 
     // Calculate options count based on relationship
     const relationship = getRelationship(playerMonster.element, enemyMonster.element);
@@ -224,19 +374,46 @@ export default function App() {
 
   // 3. Selection Answer Handler
   const handleSelectAnswer = (answer: string) => {
-    if (!currentQuestion || isAnswered || !enemyMonster || !playerMonster) return;
+    if (!currentQuestion || isAnswered || !enemyMonster || !playerMonster || !currentProfile) return;
 
     setIsAnswered(true);
     setSelectedAnswer(answer);
 
     const isCorrect = answer === currentQuestion.answer;
 
+    // Fetch levels
+    const pLvl = currentProfile.monsterLevels[playerMonster.id] || 1;
+    const eLvl = battleEnemyLevel;
+
     if (battlePhase === 'question-attack') {
       // ===== ATTACK PHASE RESULTS =====
       if (isCorrect) {
         // Calculate Attack Damage
+        const basePlayerAtk = getMonsterStats(pLvl).atk;
+        const itemAtkBuff = atkBuffTurns > 0 ? 1 : 0;
         const isBurnActive = playerEffects.some((eff) => eff.type === 'burn');
-        const damage = isBurnActive ? 2 : 1;
+        const skillAtkBuff = isBurnActive ? 1 : 0;
+
+        const finalPlayerAtk = basePlayerAtk + itemAtkBuff + skillAtkBuff;
+        
+        // 50% chance for enemy to defend
+        const computerDefends = Math.random() < 0.5;
+        setIsEnemyDefending(computerDefends);
+
+        let damage = finalPlayerAtk;
+        if (computerDefends) {
+          const enemyDef = getMonsterStats(eLvl).def;
+          damage = Math.max(1, finalPlayerAtk - enemyDef);
+        }
+
+        // Play sounds
+        soundManager.playAttack();
+        if (computerDefends) {
+          setTimeout(() => soundManager.playDefend(), 250);
+          setTimeout(() => soundManager.playHit(), 400);
+        } else {
+          setTimeout(() => soundManager.playHit(), 300);
+        }
 
         // Trigger player attack tackle motion (0ms)
         setIsPlayerAttacking(true);
@@ -253,8 +430,14 @@ export default function App() {
         setActiveEffect({ type: playerMonster.element, target: 'enemy', style: 'attack' });
         setTimeout(() => setActiveEffect(null), 800);
 
-        setBattleLog(`答對了！我方成功發動攻擊，對敵方造成 ${damage} 點傷害！`);
+        if (computerDefends) {
+          setBattleLog(`答對了！我方發動攻擊，但對手發動防禦！對敵方造成 ${damage} 點傷害。`);
+        } else {
+          setBattleLog(`答對了！我方成功發動攻擊，對敵方造成 ${damage} 點傷害！`);
+        }
       } else {
+        soundManager.playClick();
+        setIsEnemyDefending(false);
         setWrongAnswersInBattle((prev) => [...prev, currentQuestion]);
         setBattleLog(`回答錯誤！單字填充失敗，我方攻擊失誤...`);
       }
@@ -263,6 +446,11 @@ export default function App() {
       // Opponent initiates attack tackle motion regardless (0ms)
       setIsEnemyAttacking(true);
       setTimeout(() => setIsEnemyAttacking(false), 800);
+      
+      // Play enemy attack sound
+      soundManager.playAttack();
+
+      const enemyAtk = getMonsterStats(eLvl).atk;
 
       if (isCorrect) {
         setIsShieldActive(true);
@@ -278,33 +466,55 @@ export default function App() {
         setActiveEffect({ type: playerMonster.element, target: 'player', style: 'defense' });
         setTimeout(() => setActiveEffect(null), 800);
 
+        // Play defense chime
+        soundManager.playDefend();
+
+        // Calculate blocked damage
+        const basePlayerDef = getMonsterStats(pLvl).def;
+        const itemDefBuff = defBuffTurns > 0 ? 1 : 0;
+        const finalPlayerDef = basePlayerDef + itemDefBuff;
+
+        const damageTaken = Math.max(0, enemyAtk - finalPlayerDef);
+        setPlayerHp((prev) => Math.max(0, prev - damageTaken));
+
         // Check for Shock counter attack
         const isShockActive = playerEffects.some((eff) => eff.type === 'shock');
         if (isShockActive) {
           setEnemyHp((prev) => Math.max(0, prev - 1));
-          // We can also trigger a hit effect on enemy from counter
           setTimeout(() => {
             setIsEnemyHit(true);
             setTimeout(() => setIsEnemyHit(false), 500);
           }, 450);
-          setBattleLog(`答對了！完美防禦對手攻擊，雷電護盾反擊造成 1 點傷害！`);
+          
+          if (damageTaken === 0) {
+            setBattleLog(`答對了！完美防禦對手攻擊，且雷電護盾反擊造成 1 點傷害！`);
+          } else {
+            setBattleLog(`答對了！成功阻擋部分傷害（受到 ${damageTaken} 點傷害），且雷電護盾反擊造成 1 點傷害！`);
+          }
         } else {
-          setBattleLog(`答對了！完美防禦對手攻擊，毫髮無傷！`);
+          if (damageTaken === 0) {
+            setBattleLog(`答對了！完美防禦對手攻擊，毫髮無傷！`);
+          } else {
+            setBattleLog(`答對了！防禦成功阻擋了部分傷害，我方僅受到 ${damageTaken} 點傷害。`);
+          }
         }
       } else {
-        setPlayerHp((prev) => Math.max(0, prev - 1));
         // Player gets hit and shakes on impact (300ms)
         setTimeout(() => {
           setIsPlayerHit(true);
           setTimeout(() => setIsPlayerHit(false), 500);
         }, 300);
 
+        // Play hit sound after delay
+        setTimeout(() => soundManager.playHit(), 300);
+
         // Defense failed: show enemy element attack burst on player
         setActiveEffect({ type: enemyMonster.element, target: 'player', style: 'attack' });
         setTimeout(() => setActiveEffect(null), 800);
 
+        setPlayerHp((prev) => Math.max(0, prev - enemyAtk));
         setWrongAnswersInBattle((prev) => [...prev, currentQuestion]);
-        setBattleLog(`回答錯誤！防禦破綻，受到 1 點傷害！`);
+        setBattleLog(`回答錯誤！防禦破綻，受到 ${enemyAtk} 點傷害！`);
       }
     }
   };
@@ -312,6 +522,8 @@ export default function App() {
   // 4. Round Flow Controller (Continues to defense, petrify skip, or round update)
   const handleContinue = () => {
     if (!enemyMonster || !playerMonster) return;
+
+    soundManager.playClick();
 
     // Check if enemy died
     if (enemyHp <= 0) {
@@ -381,6 +593,10 @@ export default function App() {
         .filter((eff) => eff.duration > 0)
     );
 
+    // Decrement item buff turn counters
+    setAtkBuffTurns((prev) => Math.max(0, prev - 1));
+    setDefBuffTurns((prev) => Math.max(0, prev - 1));
+
     // Increment Round
     setRound((prev) => prev + 1);
     setBattlePhase('player-start');
@@ -391,53 +607,71 @@ export default function App() {
   const handleEndBattle = (isVictory: boolean) => {
     if (!currentProfile) return;
 
-    setGameState('game-over');
+    const finalizeBattle = () => {
+      // Calculate Gold & EXP
+      const expGained = isVictory ? 50 : 10;
+      const goldGained = isVictory ? 25 : 5;
 
-    // Calculate Gold & EXP
-    const expGained = isVictory ? 50 : 10;
-    const goldGained = isVictory ? 25 : 5;
+      let newExp = currentProfile.exp + expGained;
+      let newLevel = currentProfile.level;
 
-    let newExp = currentProfile.exp + expGained;
-    let newLevel = currentProfile.level;
-
-    if (newExp >= 100) {
-      newExp -= 100;
-      newLevel += 1;
-    }
-
-    // Merge wrong questions
-    const updatedWrong = { ...currentProfile.wrongQuestions };
-    wrongAnswersInBattle.forEach((q) => {
-      if (updatedWrong[q.id]) {
-        updatedWrong[q.id].errorCount += 1;
-      } else {
-        updatedWrong[q.id] = {
-          id: q.id,
-          question: q.question,
-          answer: q.answer,
-          distractors: q.distractors,
-          grade: q.grade,
-          type: q.type,
-          errorCount: 1
-        };
+      if (newExp >= 100) {
+        newExp -= 100;
+        newLevel += 1;
       }
-    });
 
-    const updatedProfile: PlayerSave = {
-      ...currentProfile,
-      level: newLevel,
-      exp: newExp,
-      gold: currentProfile.gold + goldGained,
-      wrongQuestions: updatedWrong
+      // Merge wrong questions
+      const updatedWrong = { ...currentProfile.wrongQuestions };
+      wrongAnswersInBattle.forEach((q) => {
+        if (updatedWrong[q.id]) {
+          updatedWrong[q.id].errorCount += 1;
+        } else {
+          updatedWrong[q.id] = {
+            id: q.id,
+            question: q.question,
+            answer: q.answer,
+            distractors: q.distractors,
+            grade: q.grade,
+            type: q.type,
+            errorCount: 1
+          };
+        }
+      });
+
+      const updatedProfile: PlayerSave = {
+        ...currentProfile,
+        level: newLevel,
+        exp: newExp,
+        gold: currentProfile.gold + goldGained,
+        monsterExpPool: currentProfile.monsterExpPool + expGained, // accumulate monster EXP pool!
+        wrongQuestions: updatedWrong
+      };
+
+      handleProfileSave(updatedProfile);
+
+      // Trigger silent GAS Sync if connected
+      if (updatedProfile.gasUrl) {
+        saveSystem.syncToGAS(updatedProfile).then((res) => {
+          console.log('GAS Auto-Sync Result:', res.message);
+        });
+      }
     };
 
-    handleProfileSave(updatedProfile);
+    if (isVictory) {
+      // Play fly-out animation & sound
+      soundManager.playFlyOut();
+      setIsEnemyDefeated(true);
 
-    // Trigger silent GAS Sync if connected
-    if (updatedProfile.gasUrl) {
-      saveSystem.syncToGAS(updatedProfile).then((res) => {
-        console.log('GAS Auto-Sync Result:', res.message);
-      });
+      setTimeout(() => {
+        setIsEnemyDefeated(false); // Reset state
+        setGameState('game-over');
+        soundManager.playVictory();
+        finalizeBattle();
+      }, 1200);
+    } else {
+      setGameState('game-over');
+      soundManager.playDefeat();
+      finalizeBattle();
     }
   };
 
@@ -467,7 +701,22 @@ export default function App() {
             
             {currentProfile && (
               <button
-                onClick={() => setShowDashboard(true)}
+                onClick={() => {
+                  soundManager.playClick();
+                  setIsShopOpen(true);
+                }}
+                className="btn-secondary px-3 py-2 text-sm flex items-center gap-1.5 bg-amber-500/10 border-amber-500/30 text-amber-300 hover:bg-amber-500/20"
+              >
+                🛒 <span className="hidden md:inline">商店</span>
+              </button>
+            )}
+
+            {currentProfile && (
+              <button
+                onClick={() => {
+                  soundManager.playClick();
+                  setShowDashboard(true);
+                }}
                 className="btn-secondary px-3 py-2 text-sm flex items-center gap-1.5"
               >
                 ⚙️ <span className="hidden md:inline">家長後台</span>
@@ -498,6 +747,7 @@ export default function App() {
                       <div
                         key={name}
                         onClick={() => {
+                          soundManager.playClick();
                           setCurrentProfile(profile);
                           setGameState('monster-select');
                         }}
@@ -568,41 +818,164 @@ export default function App() {
           <div className="w-full flex flex-col gap-6 animate-pop my-auto">
             <div className="text-center">
               <h2 className="text-3xl md:text-4xl font-extrabold text-white mb-2">請選擇出戰的小怪獸</h2>
-              <p className="text-base md:text-lg text-indigo-200">每隻怪獸都有獨特技能與剋屬性！對抗剋星在戰鬥中會得到大優勢！</p>
+              <p className="text-base md:text-lg text-indigo-200">
+                左右滑動或點擊箭頭切換角色。可使用累積經驗值幫喜歡的角色升級！
+              </p>
+              <div className="inline-flex items-center gap-2 bg-indigo-950/40 border border-indigo-500/20 px-4 py-2 rounded-xl mt-3 text-sm font-bold text-indigo-300">
+                <span>🎒 可用怪獸經驗值：</span>
+                <span className="text-emerald-400 font-extrabold text-lg">{currentProfile.monsterExpPool} EXP</span>
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              {Object.values(MONSTERS).map((monster) => (
-                <div
-                  key={monster.id}
-                  onClick={() => handleSelectMonster(monster)}
-                  className="glass-panel flex flex-col items-center gap-4 hover:border-indigo-500 hover:bg-indigo-950/20 cursor-pointer transition-all active:scale-98 relative group p-4 md:p-6"
-                >
-                  <span className={`element-badge ${monster.element} absolute top-3 right-3 text-xs md:text-sm font-extrabold`}>
-                    {monster.element}
-                  </span>
-                  
-                  <div className="w-24 h-24 md:w-32 md:h-32 bg-white/5 rounded-full flex items-center justify-center border border-white/10 group-hover:scale-105 transition-transform">
-                    <img src={monster.imageUrl} alt={monster.name} className="w-20 h-20 md:w-28 md:h-28 object-contain" />
-                  </div>
+            {/* Carousel Container */}
+            <div className="carousel-container mt-2">
+              {/* Prev Button */}
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handlePrevMonster();
+                }} 
+                className="carousel-nav-btn"
+              >
+                ◀
+              </button>
 
-                  <div className="text-center px-1">
-                    <h4 className="font-black text-white text-lg md:text-2xl mt-1">{monster.name.split(' ')[0]}</h4>
-                    <div className="mt-2 text-center">
-                      <p className="text-xs md:text-sm text-indigo-300 font-extrabold">
-                        技能：{monster.skill.name}
-                      </p>
-                      <p className="text-[11px] md:text-xs text-white/60 mt-1 leading-relaxed">
-                        {monster.skill.description}
-                      </p>
+              {/* Monster Card Wrapper */}
+              <div 
+                className="carousel-card-wrapper"
+                onTouchStart={(e) => setTouchStartX(e.touches[0].clientX)}
+                onTouchEnd={(e) => {
+                  if (touchStartX === null) return;
+                  const diff = touchStartX - e.changedTouches[0].clientX;
+                  if (diff > 50) {
+                    handleNextMonster();
+                  } else if (diff < -50) {
+                    handlePrevMonster();
+                  }
+                  setTouchStartX(null);
+                }}
+              >
+                {(() => {
+                  const monster = monsterList[carouselIndex];
+                  const level = currentProfile.monsterLevels[monster.id] || 1;
+                  const stats = getMonsterStats(level);
+                  const upgradeCost = level * 100;
+                  const canUpgrade = level < 10 && currentProfile.monsterExpPool >= upgradeCost;
+
+                  return (
+                    <div className="glass-panel flex flex-col items-center gap-5 relative group p-6 border-indigo-500/30">
+                      {/* Element Badge */}
+                      <span className={`element-badge ${monster.element} absolute top-4 right-4 text-xs md:text-sm font-black`}>
+                        {monster.element.toUpperCase()}
+                      </span>
+
+                      {/* Large Circular Sprite Container */}
+                      <div className="w-32 h-32 md:w-44 md:h-44 bg-white/5 rounded-full flex items-center justify-center border border-white/10 group-hover:scale-105 transition-transform shadow-inner">
+                        <img src={monster.imageUrl} alt={monster.name} className="w-28 h-28 md:w-36 md:h-36 object-contain filter drop-shadow-md" />
+                      </div>
+
+                      {/* Character Info */}
+                      <div className="text-center w-full">
+                        <h3 className="font-black text-white text-2xl md:text-3xl tracking-wide">
+                          {monster.name.split(' ')[0]}
+                          <span className="text-indigo-400 ml-2 text-xl font-bold">Lv.{level}</span>
+                        </h3>
+                        
+                        {/* Stats Info Grid */}
+                        <div className="grid grid-cols-3 gap-3 bg-[#111424]/60 border border-white/5 p-3 rounded-xl mt-3 text-xs md:text-sm">
+                          <div className="flex flex-col items-center">
+                            <span className="text-white/40 font-bold mb-0.5">❤️ HP</span>
+                            <span className="font-extrabold text-rose-400 text-lg">{stats.maxHp}</span>
+                          </div>
+                          <div className="flex flex-col items-center border-x border-white/5">
+                            <span className="text-white/40 font-bold mb-0.5">⚔️ 攻擊</span>
+                            <span className="font-extrabold text-amber-400 text-lg">{stats.atk}</span>
+                          </div>
+                          <div className="flex flex-col items-center">
+                            <span className="text-white/40 font-bold mb-0.5">🛡️ 防禦</span>
+                            <span className="font-extrabold text-emerald-400 text-lg">{stats.def}</span>
+                          </div>
+                        </div>
+
+                        {/* Skill Info */}
+                        <div className="bg-white/2 border border-white/5 rounded-xl p-3 mt-3 text-left">
+                          <span className="text-xs text-indigo-300 font-extrabold">✨ 獨特技能：{monster.skill.name}</span>
+                          <p className="text-xs text-white/70 mt-1 leading-relaxed">{monster.skill.description}</p>
+                        </div>
+                      </div>
+
+                      {/* Upgrade & Selection Action Buttons */}
+                      <div className="flex flex-col gap-2.5 w-full mt-1">
+                        {/* Upgrade Button */}
+                        {level < 10 ? (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (canUpgrade) {
+                                soundManager.playLevelUp();
+                                const newExpPool = currentProfile.monsterExpPool - upgradeCost;
+                                const newLevels = { ...currentProfile.monsterLevels, [monster.id]: level + 1 };
+                                handleProfileSave({
+                                  ...currentProfile,
+                                  monsterExpPool: newExpPool,
+                                  monsterLevels: newLevels
+                                });
+                              } else {
+                                soundManager.playClick();
+                              }
+                            }}
+                            disabled={!canUpgrade}
+                            className={`py-3 rounded-xl font-extrabold text-sm flex items-center justify-center gap-1.5 transition-all ${
+                              canUpgrade
+                                ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md hover:scale-102 hover:brightness-105 cursor-pointer'
+                                : 'bg-white/5 border border-white/5 text-white/40 cursor-not-allowed'
+                            }`}
+                          >
+                            ⭐ 升級怪獸 {canUpgrade ? `(消耗 ${upgradeCost} EXP)` : `(需要 ${upgradeCost} EXP)`}
+                          </button>
+                        ) : (
+                          <div className="bg-indigo-950/20 border border-indigo-500/30 text-indigo-300 py-3 rounded-xl font-black text-sm text-center">
+                            👑 怪獸已達最大等級 (Lv.10)
+                          </div>
+                        )}
+
+                        {/* Select to Battle Button */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            soundManager.playClick();
+                            handleSelectMonster(monster);
+                          }}
+                          className="btn-primary w-full py-4 text-md font-black shadow-lg cursor-pointer"
+                        >
+                          ⚔️ 選擇此怪獸出戰
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              ))}
+                  );
+                })()}
+              </div>
+
+              {/* Next Button */}
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleNextMonster();
+                }} 
+                className="carousel-nav-btn"
+              >
+                ▶
+              </button>
             </div>
             
             <div className="flex justify-center mt-2">
-              <button onClick={() => setGameState('profile-select')} className="btn-secondary text-sm">
+              <button 
+                onClick={() => {
+                  soundManager.playClick();
+                  setGameState('profile-select');
+                }} 
+                className="btn-secondary text-sm"
+              >
                 返回重選存檔
               </button>
             </div>
@@ -681,11 +1054,57 @@ export default function App() {
               ))}
             </div>
 
+            {/* Opponent Level Selection */}
+            <div className="bg-[#111424]/60 border border-white/5 rounded-xl p-4 flex flex-col gap-2.5 mt-2">
+              <span className="text-xs text-indigo-300 font-extrabold flex items-center gap-1">
+                👾 選擇對手怪獸等級：
+              </span>
+              <div className="flex gap-2 flex-wrap items-center">
+                <button
+                  onClick={() => {
+                    soundManager.playClick();
+                    setEnemyLevelSelection('match');
+                  }}
+                  className={`px-3 py-2 rounded-lg text-xs font-black border transition-all ${
+                    enemyLevelSelection === 'match'
+                      ? 'bg-indigo-600 border-indigo-400 text-white'
+                      : 'bg-white/2 border-white/5 text-white/60 hover:bg-white/5 cursor-pointer'
+                  }`}
+                >
+                  與我方同級
+                </button>
+                <div className="flex gap-1 items-center flex-wrap">
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((lvl) => (
+                    <button
+                      key={lvl}
+                      onClick={() => {
+                        soundManager.playClick();
+                        setEnemyLevelSelection(lvl);
+                      }}
+                      className={`w-8 h-8 rounded-lg text-xs font-black border transition-all flex items-center justify-center cursor-pointer ${
+                        enemyLevelSelection === lvl
+                          ? 'bg-indigo-600 border-indigo-400 text-white'
+                          : 'bg-white/2 border-white/5 text-white/60 hover:bg-white/5'
+                      }`}
+                    >
+                      {lvl}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
             <div className="flex gap-4 w-full mt-2">
-              <button onClick={() => setGameState('monster-select')} className="btn-secondary flex-1 py-3 text-sm">
+              <button 
+                onClick={() => {
+                  soundManager.playClick();
+                  setGameState('monster-select');
+                }} 
+                className="btn-secondary flex-1 py-3 text-sm cursor-pointer"
+              >
                 返回選角
               </button>
-              <button onClick={handleStartBattle} className="btn-primary flex-1 py-3 text-sm font-extrabold">
+              <button onClick={handleStartBattle} className="btn-primary flex-1 py-3 text-sm font-extrabold cursor-pointer">
                 ⚔️ 開始對戰！
               </button>
             </div>
@@ -693,13 +1112,15 @@ export default function App() {
         )}
 
         {/* VIEW 4: BATTLE STAGE SCREEN */}
-        {gameState === 'battle' && playerMonster && enemyMonster && (
+        {gameState === 'battle' && playerMonster && enemyMonster && currentProfile && (
           <div className="w-full flex flex-col gap-3 animate-pop my-auto">
             <BattleArena
               playerMonster={playerMonster}
               playerHp={playerHp}
+              playerLevel={currentProfile.monsterLevels[playerMonster.id] || 1}
               enemyMonster={enemyMonster}
               enemyHp={enemyHp}
+              enemyLevel={battleEnemyLevel}
               isPlayerHit={isPlayerHit}
               isEnemyHit={isEnemyHit}
               isShieldActive={isShieldActive}
@@ -711,7 +1132,22 @@ export default function App() {
               round={round}
               activeEffect={activeEffect}
               phase={battlePhase}
+              isEnemyDefending={isEnemyDefending}
+              isEnemyDefeated={isEnemyDefeated}
             />
+
+            {/* Continue button between BattleArena and ActionPanel */}
+            {isAnswered && (
+              <div className="w-full flex justify-center py-1.5 animate-pop">
+                <button
+                  onClick={handleContinue}
+                  className="btn-primary flex items-center gap-2 px-12 py-4 text-xl md:text-2xl font-black shadow-2xl bg-gradient-to-r from-indigo-500 to-indigo-600 border border-indigo-300/40 hover:scale-105 active:scale-95 cursor-pointer rounded-2xl"
+                >
+                  <span>繼續冒險</span>
+                  <span>➔</span>
+                </button>
+              </div>
+            )}
 
             <ActionPanel
               currentQuestion={currentQuestion}
@@ -724,7 +1160,7 @@ export default function App() {
               onUseSkill={handleUseSkill}
               onStartAttack={handleStartAttack}
               onSelectAnswer={handleSelectAnswer}
-              onContinue={handleContinue}
+              onOpenInventory={() => setIsInventoryOpen(true)}
             />
           </div>
         )}
@@ -803,6 +1239,149 @@ export default function App() {
           onSaveUpdate={handleProfileSave}
           onClose={() => setShowDashboard(false)}
         />
+      )}
+
+      {/* Global Shop Modal */}
+      {isShopOpen && currentProfile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-pop">
+          <div className="glass-panel w-full max-w-xl flex flex-col gap-6 relative max-h-[90vh] overflow-y-auto">
+            {/* Close Button */}
+            <button
+              onClick={() => {
+                soundManager.playClick();
+                setIsShopOpen(false);
+              }}
+              className="absolute top-4 right-4 text-white/50 hover:text-white text-2xl font-black cursor-pointer bg-white/5 w-10 h-10 rounded-full flex items-center justify-center"
+            >
+              ✕
+            </button>
+
+            <div className="text-center mt-2">
+              <span className="text-sm text-indigo-400 font-extrabold">冒險者商店</span>
+              <h2 className="text-3xl font-extrabold text-white mt-1">購買戰鬥道具</h2>
+              <div className="inline-flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/20 px-3.5 py-1.5 rounded-full text-amber-300 text-sm font-bold mt-2">
+                🪙 我的金幣：<span className="text-base font-black">{currentProfile.gold}</span>
+              </div>
+            </div>
+
+            {/* Shop Grid */}
+            <div className="shop-grid">
+              {SHOP_ITEMS.map((item) => {
+                const owned = currentProfile.inventory[item.id] || 0;
+                return (
+                  <div key={item.id} className="shop-item-card">
+                    <div className="flex gap-3 items-start">
+                      <span className="text-4xl p-2 bg-white/5 rounded-xl">{item.icon}</span>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="font-extrabold text-white text-lg">{item.name}</span>
+                        <p className="text-xs text-white/60 leading-relaxed">{item.description}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between items-center border-t border-white/5 pt-3 mt-1">
+                      <span className="text-xs text-white/40 font-bold">已擁有: <strong className="text-white/80">{owned}</strong></span>
+                      <button
+                        onClick={() => handleBuyItem(item.id)}
+                        className={`px-4 py-2 rounded-xl text-xs font-black flex items-center gap-1 transition-all ${
+                          currentProfile.gold >= item.cost
+                            ? 'bg-amber-500 hover:bg-amber-600 text-[#0f111a] cursor-pointer shadow-md'
+                            : 'bg-white/5 border border-white/5 text-white/30 cursor-not-allowed'
+                        }`}
+                      >
+                        🪙 {item.cost} 購買
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="flex justify-center mt-2">
+              <button
+                onClick={() => {
+                  soundManager.playClick();
+                  setIsShopOpen(false);
+                }}
+                className="btn-secondary w-full py-3 text-sm font-extrabold"
+              >
+                離開商店
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Battle Inventory Modal Overlay */}
+      {isInventoryOpen && currentProfile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-pop">
+          <div className="glass-panel w-full max-w-lg flex flex-col gap-6 relative">
+            {/* Close Button */}
+            <button
+              onClick={() => {
+                soundManager.playClick();
+                setIsInventoryOpen(false);
+              }}
+              className="absolute top-4 right-4 text-white/50 hover:text-white text-2xl font-black cursor-pointer bg-white/5 w-10 h-10 rounded-full flex items-center justify-center"
+            >
+              ✕
+            </button>
+
+            <div className="text-center mt-2">
+              <span className="text-sm text-indigo-400 font-extrabold">🎒 戰鬥背包</span>
+              <h2 className="text-2xl font-extrabold text-white mt-1">選擇要使用的道具</h2>
+              <p className="text-xs text-white/50 mt-1">使用道具將會消耗 1 回合的準備時間</p>
+            </div>
+
+            {/* Inventory List */}
+            <div className="flex flex-col gap-3 max-h-[300px] overflow-y-auto pr-1">
+              {SHOP_ITEMS.map((item) => {
+                const qty = currentProfile.inventory[item.id] || 0;
+                return (
+                  <div
+                    key={item.id}
+                    className={`flex justify-between items-center p-4 rounded-xl border transition-all ${
+                      qty > 0
+                        ? 'bg-white/3 border-white/10 hover:border-indigo-500/50 hover:bg-indigo-950/10 cursor-pointer'
+                        : 'opacity-40 border-white/5 cursor-not-allowed'
+                    }`}
+                    onClick={() => {
+                      if (qty > 0) {
+                        handleUseItem(item.id);
+                      }
+                    }}
+                  >
+                    <div className="flex gap-3 items-center">
+                      <span className="text-3xl p-1 bg-white/5 rounded-lg">{item.icon}</span>
+                      <div className="flex flex-col">
+                        <span className="font-extrabold text-white text-base">{item.name}</span>
+                        <span className="text-xs text-white/50">{item.description}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <span className="px-2.5 py-1 rounded-lg bg-indigo-500/10 text-indigo-400 font-black text-xs">
+                        數量: {qty}
+                      </span>
+                      {qty > 0 && <span className="text-indigo-400 font-bold">➔</span>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="flex gap-4">
+              <button
+                onClick={() => {
+                  soundManager.playClick();
+                  setIsInventoryOpen(false);
+                }}
+                className="btn-secondary flex-1 py-3 text-sm font-extrabold"
+              >
+                返回戰鬥
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Global Footer */}

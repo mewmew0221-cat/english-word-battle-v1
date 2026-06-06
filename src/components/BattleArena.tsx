@@ -10,8 +10,10 @@ interface StatusEffect {
 interface BattleArenaProps {
   playerMonster: Monster;
   playerHp: number;
+  playerLevel: number;
   enemyMonster: Monster;
   enemyHp: number;
+  enemyLevel: number;
   isPlayerHit: boolean;
   isEnemyHit: boolean;
   isShieldActive: boolean;
@@ -23,6 +25,8 @@ interface BattleArenaProps {
   round: number;
   activeEffect: { type: ElementType; target: 'player' | 'enemy'; style: 'attack' | 'defense' } | null;
   phase: 'player-start' | 'question-attack' | 'question-defense' | 'round-end';
+  isEnemyDefending?: boolean;
+  isEnemyDefeated?: boolean;
 }
 
 const ELEMENT_LABELS: Record<ElementType, string> = {
@@ -72,11 +76,21 @@ const getElementEffectSymbols = (type: ElementType, style: 'attack' | 'defense' 
   }
 };
 
+const getMonsterStats = (level: number) => {
+  return {
+    atk: 1 + Math.floor((level - 1) / 3),
+    def: 1 + Math.floor((level - 1) / 4),
+    maxHp: level === 10 ? 20 : 10 + (level - 1)
+  };
+};
+
 export const BattleArena: React.FC<BattleArenaProps> = ({
   playerMonster,
   playerHp,
+  playerLevel,
   enemyMonster,
   enemyHp,
+  enemyLevel,
   isPlayerHit,
   isEnemyHit,
   isShieldActive,
@@ -87,8 +101,12 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
   battleLog,
   round,
   activeEffect,
-  phase
+  phase,
+  isEnemyDefending = false,
+  isEnemyDefeated = false
 }) => {
+  const playerStats = getMonsterStats(playerLevel);
+  const enemyStats = getMonsterStats(enemyLevel);
   // Helper to determine HP bar color class
   const getHpColorClass = (current: number, max: number) => {
     const ratio = current / max;
@@ -153,19 +171,26 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
             {/* HP Bar (Larger Height) */}
             <div className="hp-container-large mt-1">
               <div
-                className={`hp-bar ${getHpColorClass(playerHp, playerMonster.maxHp)}`}
-                style={{ width: `${(playerHp / playerMonster.maxHp) * 100}%` }}
+                className={`hp-bar ${getHpColorClass(playerHp, playerStats.maxHp)}`}
+                style={{ width: `${(playerHp / playerStats.maxHp) * 100}%` }}
               ></div>
             </div>
             {/* Massive HP Text Redesigned & Enlarged */}
             <div className="flex justify-between items-end mt-1.5">
               <span className="text-sm md:text-base text-white/50 font-black tracking-widest uppercase">HP</span>
               <div className="flex items-baseline gap-1">
-                <span className={`text-4xl md:text-5xl font-black tracking-tight ${getHpGlowClass(playerHp, playerMonster.maxHp)}`}>
+                <span className={`text-4xl md:text-5xl font-black tracking-tight ${getHpGlowClass(playerHp, playerStats.maxHp)}`}>
                   {playerHp}
                 </span>
-                <span className="text-white/30 text-xl md:text-2xl font-bold">/ {playerMonster.maxHp}</span>
+                <span className="text-white/30 text-xl md:text-2xl font-bold">/ {playerStats.maxHp}</span>
               </div>
+            </div>
+
+            {/* Level, ATK, DEF Display */}
+            <div className="flex justify-between items-center bg-white/5 border border-white/5 px-2.5 py-1.5 rounded-lg mt-2 text-xs md:text-sm font-bold text-white/80">
+              <span>等級: <strong className="text-indigo-400">Lv.{playerLevel}</strong></span>
+              <span>⚔️ {playerStats.atk}</span>
+              <span>🛡️ {playerStats.def}</span>
             </div>
 
             {/* Buffs & Status effects (Enlarged) */}
@@ -236,19 +261,26 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
             {/* HP Bar */}
             <div className="hp-container-large mt-1">
               <div
-                className={`hp-bar ${getHpColorClass(enemyHp, enemyMonster.maxHp)}`}
-                style={{ width: `${(enemyHp / enemyMonster.maxHp) * 100}%` }}
+                className={`hp-bar ${getHpColorClass(enemyHp, enemyStats.maxHp)}`}
+                style={{ width: `${(enemyHp / enemyStats.maxHp) * 100}%` }}
               ></div>
             </div>
             {/* Massive HP Text Redesigned & Enlarged */}
             <div className="flex justify-between items-end mt-1.5">
               <div className="flex items-baseline gap-1">
-                <span className={`text-4xl md:text-5xl font-black tracking-tight ${getHpGlowClass(enemyHp, enemyMonster.maxHp)}`}>
+                <span className={`text-4xl md:text-5xl font-black tracking-tight ${getHpGlowClass(enemyHp, enemyStats.maxHp)}`}>
                   {enemyHp}
                 </span>
-                <span className="text-white/30 text-xl md:text-2xl font-bold">/ {enemyMonster.maxHp}</span>
+                <span className="text-white/30 text-xl md:text-2xl font-bold">/ {enemyStats.maxHp}</span>
               </div>
               <span className="text-sm md:text-base text-white/50 font-black tracking-widest uppercase">HP</span>
+            </div>
+
+            {/* Level, ATK, DEF Display */}
+            <div className="flex justify-between items-center bg-white/5 border border-white/5 px-2.5 py-1.5 rounded-lg mt-2 text-xs md:text-sm font-bold text-white/80">
+              <span>等級: <strong className="text-indigo-400">Lv.{enemyLevel}</strong></span>
+              <span>⚔️ {enemyStats.atk}</span>
+              <span>🛡️ {enemyStats.def}</span>
             </div>
 
             {/* Buffs & Status effects (Enlarged) */}
@@ -265,10 +297,17 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
 
           {/* Sprite Box (Significantly Enlarged, image scale-130 applied to remove PNG whitespace) */}
           <div className={`relative w-44 h-44 md:w-64 md:h-64 flex items-center justify-center bg-white/5 rounded-full border border-white/10 shadow-lg ${
-            isEnemyAttacking
+            isEnemyDefeated
+              ? 'animate-fly-out'
+              : isEnemyAttacking
               ? 'animate-enemy-attack'
               : (isEnemyHit ? 'animate-shake' : 'animate-float')
           }`}>
+            {isEnemyDefending && (
+              <div className="absolute top-2 left-2 bg-amber-500 border border-amber-300 text-white font-extrabold px-3 py-1 rounded-lg text-xs md:text-sm shadow-md animate-pulse z-30">
+                🛡️ 防守中
+              </div>
+            )}
             <TransparentImage
               src={enemyMonster.imageUrl}
               alt={enemyMonster.name}
