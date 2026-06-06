@@ -478,11 +478,11 @@ export default function App() {
       </header>
 
       {/* Main Container */}
-      <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-6 flex flex-col justify-center">
+      <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-6 flex flex-col">
         
         {/* VIEW 1: PROFILE SELECT SCREEN */}
         {gameState === 'profile-select' && (
-          <div className="glass-panel w-full max-w-lg mx-auto flex flex-col gap-6 animate-pop">
+          <div className="glass-panel w-full max-w-lg mx-auto flex flex-col gap-6 animate-pop my-auto">
             <div className="text-center">
               <h2 className="text-2xl font-extrabold text-white mb-2">誰要開始英文冒險？</h2>
               <p className="text-sm text-white/50">選擇你的存檔進度，或建立新冒險者</p>
@@ -565,10 +565,10 @@ export default function App() {
 
         {/* VIEW 2: MONSTER SELECT SCREEN */}
         {gameState === 'monster-select' && currentProfile && (
-          <div className="w-full flex flex-col gap-6 animate-pop">
+          <div className="w-full flex flex-col gap-6 animate-pop my-auto">
             <div className="text-center">
-              <h2 className="text-2xl md:text-3xl font-extrabold text-white mb-2">請選擇出戰的小怪獸</h2>
-              <p className="text-sm text-indigo-200">每隻怪獸都有獨特技能與剋屬性！對抗剋星在戰鬥中會得到大優勢！</p>
+              <h2 className="text-3xl md:text-4xl font-extrabold text-white mb-2">請選擇出戰的小怪獸</h2>
+              <p className="text-base md:text-lg text-indigo-200">每隻怪獸都有獨特技能與剋屬性！對抗剋星在戰鬥中會得到大優勢！</p>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -576,21 +576,26 @@ export default function App() {
                 <div
                   key={monster.id}
                   onClick={() => handleSelectMonster(monster)}
-                  className="glass-panel flex flex-col items-center gap-4 hover:border-indigo-500 hover:bg-indigo-950/20 cursor-pointer transition-all active:scale-98 relative group"
+                  className="glass-panel flex flex-col items-center gap-4 hover:border-indigo-500 hover:bg-indigo-950/20 cursor-pointer transition-all active:scale-98 relative group p-4 md:p-6"
                 >
-                  <span className={`element-badge ${monster.element} absolute top-3 right-3 text-[10px]`}>
+                  <span className={`element-badge ${monster.element} absolute top-3 right-3 text-xs md:text-sm font-extrabold`}>
                     {monster.element}
                   </span>
                   
-                  <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center border border-white/10 group-hover:scale-105 transition-transform">
-                    <img src={monster.imageUrl} alt={monster.name} className="w-16 h-16 object-contain" />
+                  <div className="w-24 h-24 md:w-32 md:h-32 bg-white/5 rounded-full flex items-center justify-center border border-white/10 group-hover:scale-105 transition-transform">
+                    <img src={monster.imageUrl} alt={monster.name} className="w-20 h-20 md:w-28 md:h-28 object-contain" />
                   </div>
 
-                  <div className="text-center">
-                    <h4 className="font-extrabold text-white text-md">{monster.name.split(' ')[0]}</h4>
-                    <p className="text-[10px] text-white/50 mt-1 line-clamp-2 leading-relaxed">
-                      技能：{monster.skill.name} ({monster.skill.description})
-                    </p>
+                  <div className="text-center px-1">
+                    <h4 className="font-black text-white text-lg md:text-2xl mt-1">{monster.name.split(' ')[0]}</h4>
+                    <div className="mt-2 text-center">
+                      <p className="text-xs md:text-sm text-indigo-300 font-extrabold">
+                        技能：{monster.skill.name}
+                      </p>
+                      <p className="text-[11px] md:text-xs text-white/60 mt-1 leading-relaxed">
+                        {monster.skill.description}
+                      </p>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -606,7 +611,7 @@ export default function App() {
 
         {/* VIEW 3: LIBRARY SELECT SCREEN */}
         {gameState === 'library-select' && currentProfile && playerMonster && (
-          <div className="glass-panel w-full max-w-lg mx-auto flex flex-col gap-6 animate-pop">
+          <div className="glass-panel w-full max-w-lg mx-auto flex flex-col gap-6 animate-pop my-auto">
             <div className="text-center">
               <span className="text-sm text-indigo-400 font-extrabold">準備與 {playerMonster.name} 出擊！</span>
               <h2 className="text-2xl font-extrabold text-white mt-1 mb-2">選擇本局對戰的英文庫</h2>
@@ -689,7 +694,7 @@ export default function App() {
 
         {/* VIEW 4: BATTLE STAGE SCREEN */}
         {gameState === 'battle' && playerMonster && enemyMonster && (
-          <div className="w-full flex flex-col gap-3 animate-pop">
+          <div className="w-full flex flex-col gap-3 animate-pop my-auto">
             <BattleArena
               playerMonster={playerMonster}
               playerHp={playerHp}
@@ -726,7 +731,7 @@ export default function App() {
 
         {/* VIEW 5: GAME OVER / SETTLEMENT SCREEN */}
         {gameState === 'game-over' && currentProfile && playerMonster && enemyMonster && (
-          <div className="glass-panel w-full max-w-lg mx-auto flex flex-col gap-6 items-center text-center animate-pop">
+          <div className="glass-panel w-full max-w-lg mx-auto flex flex-col gap-6 items-center text-center animate-pop my-auto">
             
             {/* Victory / Defeat Header */}
             {enemyHp <= 0 ? (

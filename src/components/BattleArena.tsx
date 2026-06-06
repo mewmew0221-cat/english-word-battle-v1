@@ -142,16 +142,16 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
         {/* 1. LEFT SIDE: Player Monster */}
         <div className={`flex-1 flex flex-col items-center gap-6 z-10 animate-slide-left ${isPlayerHit ? 'animate-shake' : ''}`}>
           {/* Stats Box (Enlarged Text & Spacing) */}
-          <div className="flex flex-col gap-2 bg-[#1a1d30]/90 border border-white/10 p-5 rounded-2xl shadow-md w-full max-w-[260px]">
+          <div className="battle-stats-box">
             <div className="flex justify-between items-center">
-              <span className="font-black text-white text-xl md:text-2xl">{playerMonster.name.split(' ')[0]}</span>
-              <span className={`element-badge ${playerMonster.element} px-3 py-1 text-xs md:text-sm font-black`}>
+              <span className="font-black text-white text-2xl md:text-3xl">{playerMonster.name.split(' ')[0]}</span>
+              <span className={`element-badge ${playerMonster.element} px-4 py-1.5 text-sm md:text-md font-black`}>
                 {ELEMENT_LABELS[playerMonster.element]}
               </span>
             </div>
 
             {/* HP Bar (Larger Height) */}
-            <div className="hp-container h-[28px] mt-1">
+            <div className="hp-container-large mt-1">
               <div
                 className={`hp-bar ${getHpColorClass(playerHp, playerMonster.maxHp)}`}
                 style={{ width: `${(playerHp / playerMonster.maxHp) * 100}%` }}
@@ -159,7 +159,7 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
             </div>
             {/* Massive HP Text Redesigned & Enlarged */}
             <div className="flex justify-between items-end mt-1.5">
-              <span className="text-xs md:text-sm text-white/50 font-black tracking-widest uppercase">HP</span>
+              <span className="text-sm md:text-base text-white/50 font-black tracking-widest uppercase">HP</span>
               <div className="flex items-baseline gap-1">
                 <span className={`text-4xl md:text-5xl font-black tracking-tight ${getHpGlowClass(playerHp, playerMonster.maxHp)}`}>
                   {playerHp}
@@ -180,8 +180,8 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
             )}
           </div>
 
-          {/* Sprite Box (Significantly Enlarged from 32/44 to 36/52, image scale-130 applied to remove PNG whitespace) */}
-          <div className={`relative w-36 h-36 md:w-52 md:h-52 flex items-center justify-center bg-white/5 rounded-full border border-white/10 shadow-lg ${
+          {/* Sprite Box (Significantly Enlarged, image scale-130 applied to remove PNG whitespace) */}
+          <div className={`relative w-44 h-44 md:w-64 md:h-64 flex items-center justify-center bg-white/5 rounded-full border border-white/10 shadow-lg ${
             isPlayerAttacking
               ? 'animate-player-attack'
               : (isPlayerHit ? 'animate-shake' : 'animate-float')
@@ -189,7 +189,7 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
             <TransparentImage
               src={playerMonster.imageUrl}
               alt={playerMonster.name}
-              className="w-32 h-32 md:w-44 md:h-44 object-contain filter drop-shadow-[0_8px_16px_rgba(0,0,0,0.5)] z-0 transform scale-130"
+              className="w-40 h-40 md:w-56 md:h-56 object-contain filter drop-shadow-[0_8px_16px_rgba(0,0,0,0.5)] z-0 transform scale-130"
             />
             {/* Shield Dome overlay */}
             {isShieldActive && (
@@ -225,16 +225,16 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
         {/* 3. RIGHT SIDE: Opponent Monster */}
         <div className={`flex-1 flex flex-col items-center gap-6 z-10 animate-slide-right ${isEnemyHit ? 'animate-shake' : ''}`}>
           {/* Stats Box (Enlarged Text & Spacing) */}
-          <div className="flex flex-col gap-2 bg-[#1a1d30]/90 border border-white/10 p-5 rounded-2xl shadow-md w-full max-w-[260px]">
+          <div className="battle-stats-box">
             <div className="flex justify-between items-center">
-              <span className={`element-badge ${enemyMonster.element} px-3 py-1 text-xs md:text-sm font-black`}>
+              <span className={`element-badge ${enemyMonster.element} px-4 py-1.5 text-sm md:text-md font-black`}>
                 {ELEMENT_LABELS[enemyMonster.element]}
               </span>
-              <span className="font-black text-white text-xl md:text-2xl">{enemyMonster.name.split(' ')[0]}</span>
+              <span className="font-black text-white text-2xl md:text-3xl">{enemyMonster.name.split(' ')[0]}</span>
             </div>
 
             {/* HP Bar */}
-            <div className="hp-container h-[28px] mt-1">
+            <div className="hp-container-large mt-1">
               <div
                 className={`hp-bar ${getHpColorClass(enemyHp, enemyMonster.maxHp)}`}
                 style={{ width: `${(enemyHp / enemyMonster.maxHp) * 100}%` }}
@@ -248,7 +248,7 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
                 </span>
                 <span className="text-white/30 text-xl md:text-2xl font-bold">/ {enemyMonster.maxHp}</span>
               </div>
-              <span className="text-xs md:text-sm text-white/50 font-black tracking-widest uppercase">HP</span>
+              <span className="text-sm md:text-base text-white/50 font-black tracking-widest uppercase">HP</span>
             </div>
 
             {/* Buffs & Status effects (Enlarged) */}
@@ -263,8 +263,8 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
             )}
           </div>
 
-          {/* Sprite Box (Significantly Enlarged from 32/44 to 36/52, image scale-130 applied to remove PNG whitespace) */}
-          <div className={`relative w-36 h-36 md:w-52 md:h-52 flex items-center justify-center bg-white/5 rounded-full border border-white/10 shadow-lg ${
+          {/* Sprite Box (Significantly Enlarged, image scale-130 applied to remove PNG whitespace) */}
+          <div className={`relative w-44 h-44 md:w-64 md:h-64 flex items-center justify-center bg-white/5 rounded-full border border-white/10 shadow-lg ${
             isEnemyAttacking
               ? 'animate-enemy-attack'
               : (isEnemyHit ? 'animate-shake' : 'animate-float')
@@ -272,7 +272,7 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
             <TransparentImage
               src={enemyMonster.imageUrl}
               alt={enemyMonster.name}
-              className="w-32 h-32 md:w-44 md:h-44 object-contain filter drop-shadow-[0_8px_16px_rgba(0,0,0,0.5)] z-0 transform scale-130"
+              className="w-40 h-40 md:w-56 md:h-56 object-contain filter drop-shadow-[0_8px_16px_rgba(0,0,0,0.5)] z-0 transform scale-130"
             />
             {/* Damage/Hit/Shield effect overlay */}
             {activeEffect && activeEffect.target === 'enemy' && (

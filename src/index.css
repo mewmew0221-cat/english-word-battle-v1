@@ -763,4 +763,94 @@ body {
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
 }
 
+/* Antigravity: UI Centering and Sizing Upgrades */
+.my-auto {
+  margin-top: auto;
+  margin-bottom: auto;
+}
+
+/* Additional layout sizing classes for larger characters */
+.w-40 { width: 160px; }
+.h-40 { height: 160px; }
+.w-44 { width: 176px; }
+.h-44 { height: 176px; }
+.w-52 { width: 208px; }
+.h-52 { height: 208px; }
+.w-56 { width: 224px; }
+.h-56 { height: 224px; }
+.w-60 { width: 240px; }
+.h-60 { height: 240px; }
+.w-64 { width: 256px; }
+.h-64 { height: 256px; }
+.w-72 { width: 288px; }
+.h-72 { height: 288px; }
+
+/* Responsive layout sizing classes */
+@media (min-width: 768px) {
+  .md\:w-48 { width: 192px; }
+  .md\:h-48 { height: 192px; }
+  .md\:w-52 { width: 208px; }
+  .md\:h-52 { height: 208px; }
+  .md\:w-56 { width: 224px; }
+  .md\:h-56 { height: 224px; }
+  .md\:w-60 { width: 240px; }
+  .md\:h-60 { height: 240px; }
+  .md\:w-64 { width: 256px; }
+  .md\:h-64 { height: 256px; }
+  .md\:w-72 { width: 288px; }
+  .md\:h-72 { height: 288px; }
+  .md\:w-80 { width: 320px; }
+  .md\:h-80 { height: 320px; }
+  
+  /* Responsive font sizes */
+  .md\:text-4xl { font-size: 2.25rem; }
+  .md\:text-5xl { font-size: 3rem; }
+  .md\:text-6xl { font-size: 3.75rem; }
+}
+
+/* Missing text sizes */
+.text-4xl { font-size: 2.25rem; }
+.text-5xl { font-size: 3rem; }
+
+/* Large HP Progress Bar Container */
+.hp-container-large {
+  width: 100%;
+  height: 32px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.hp-container-large .hp-bar {
+  height: 100%;
+  border-radius: 16px;
+  background: linear-gradient(90deg, #4caf50, #81c784);
+  transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.hp-container-large .hp-bar.medium {
+  background: linear-gradient(90deg, #ff9800, #ffb74d);
+}
+
+.hp-container-large .hp-bar.low {
+  background: linear-gradient(90deg, #f44336, #ef5350);
+}
+
+/* Custom battle statistics box */
+.battle-stats-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: rgba(26, 29, 46, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 20px;
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  width: 100%;
+  max-width: 320px;
+}
+
+
 
