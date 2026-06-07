@@ -7,7 +7,9 @@ import { ActionPanel } from './components/ActionPanel';
 import { ParentDashboard } from './components/ParentDashboard';
 import { soundManager } from './utils/soundManager';
 
-type GameState = 'profile-select' | 'monster-select' | 'library-select' | 'battle' | 'game-over';
+const PORTAL_PASSWORD = '0221'; // 入口管理密碼
+
+type GameState = 'password-gate' | 'profile-select' | 'monster-select' | 'library-select' | 'battle' | 'game-over';
 
 interface StatusEffect {
   name: string;
@@ -46,8 +48,28 @@ export default function App() {
   // Global States
   const [profiles, setProfiles] = useState<string[]>([]);
   const [currentProfile, setCurrentProfile] = useState<PlayerSave | null>(null);
-  const [gameState, setGameState] = useState<GameState>('profile-select');
+  const [gameState, setGameState] = useState<GameState>(() => {
+    return sessionStorage.getItem('eng_battle_auth') === 'true' ? 'profile-select' : 'password-gate';
+  });
   const [showDashboard, setShowDashboard] = useState(false);
+
+  // Password Gate States
+  const [passwordInput, setPasswordInput] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [showPasswordText, setShowPasswordText] = useState(false);
+
+  const handlePasswordSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (passwordInput === PORTAL_PASSWORD) {
+      soundManager.playLevelUp();
+      sessionStorage.setItem('eng_battle_auth', 'true');
+      setGameState('profile-select');
+    } else {
+      soundManager.playClick();
+      setPasswordError('密碼錯誤，請重新輸入！');
+      setPasswordInput('');
+    }
+  };
 
   // New Profile Input State
   const [newProfileName, setNewProfileName] = useState('');
@@ -760,6 +782,51 @@ export default function App() {
       {/* Main Container */}
       <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-6 flex flex-col">
         
+        {/* VIEW 0: PASSWORD GATE */}
+        {gameState === 'password-gate' && (
+          <div className="glass-panel w-full max-w-md mx-auto flex flex-col gap-6 animate-pop my-auto text-center">
+            <div className="flex flex-col items-center gap-3">
+              <span className="text-5xl animate-pulse">🔒</span>
+              <h2 className="text-2xl font-black text-white tracking-wide">兒童英文屬性對戰</h2>
+              <p className="text-sm text-white/50">請輸入冒險入口密碼以開啟遊戲</p>
+            </div>
+
+            <form onSubmit={handlePasswordSubmit} className="flex flex-col gap-4">
+              <div className="relative">
+                <input
+                  type={showPasswordText ? 'text' : 'password'}
+                  value={passwordInput}
+                  onChange={(e) => {
+                    setPasswordInput(e.target.value);
+                    if (passwordError) setPasswordError('');
+                  }}
+                  placeholder="請輸入密碼..."
+                  className="bg-[#0f111a] border border-white/10 rounded-xl px-4 py-3 text-white text-base tracking-wider focus:border-indigo-500 focus:outline-none w-full text-center pr-12"
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPasswordText(!showPasswordText)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/80 transition-colors text-sm font-bold bg-transparent border-0 cursor-pointer"
+                >
+                  {showPasswordText ? '隱藏' : '顯示'}
+                </button>
+              </div>
+
+              {passwordError && (
+                <p className="text-sm text-rose-400 font-extrabold animate-bounce">{passwordError}</p>
+              )}
+
+              <button
+                type="submit"
+                className="btn-primary py-3 text-base font-extrabold w-full cursor-pointer shadow-lg tracking-wider"
+              >
+                🗝️ 驗證並進入冒險
+              </button>
+            </form>
+          </div>
+        )}
+
         {/* VIEW 1: PROFILE SELECT SCREEN */}
         {gameState === 'profile-select' && (
           <div className="glass-panel w-full max-w-lg mx-auto flex flex-col gap-6 animate-pop my-auto">

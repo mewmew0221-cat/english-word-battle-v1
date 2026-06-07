@@ -30,24 +30,13 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
   );
 
   // Import source tab option
-  const [importSource, setImportSource] = useState<'text' | 'file' | 'google' | 'ai'>('text');
+  const [importSource, setImportSource] = useState<'text' | 'file' | 'google'>('text');
   
   // Local file import state
   const [importedFilename, setImportedFilename] = useState('');
 
-  // AI Generator state
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem('eng_battle_gemini_key') || '');
-  const [showApiKey, setShowApiKey] = useState(false);
-  const [aiTopic, setAiTopic] = useState('日常生活單字題 5 題 (attack) 以及現在進行式與 Be 動詞文法題 5 題 (defense)');
-  const [aiGenerating, setAiGenerating] = useState(false);
-
   // Google Sheets sync state
   const [gasPullStatus, setGasPullStatus] = useState('');
-
-  const handleSaveApiKey = (key: string) => {
-    setApiKey(key);
-    localStorage.setItem('eng_battle_gemini_key', key);
-  };
 
   const handleFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -100,72 +89,7 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
     }
   };
 
-  const handleGenerateAIQuestions = async () => {
-    if (!apiKey.trim()) return alert('請先輸入 Gemini API Key！');
-    if (!aiTopic.trim()) return alert('請輸入想要產生題目的主題與要求！');
 
-    setAiGenerating(true);
-    try {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            contents: [{
-              parts: [{
-                text: `請根據以下主題和要求，生成適合國小英文對戰的測驗題目：\n\n主題要求：${aiTopic}\n\n注意事項：\n1. 單字題（attack）的挖空處要使用 '________' (連8底線)。\n2. 文法題（defense）同樣要用 '________' 挖空，且 4 個干擾項必須是文法時態的變形（如 go, goes, went, going）。\n3. 不要回傳任何 markdown 或說明文字，只回傳合法的 JSON 陣列。`
-              }]
-            }],
-            generationConfig: {
-              responseMimeType: "application/json",
-              responseSchema: {
-                type: "ARRAY",
-                items: {
-                  type: "OBJECT",
-                  properties: {
-                    question: { type: "STRING" },
-                    answer: { type: "STRING" },
-                    type: { type: "STRING", enum: ["attack", "defense"] },
-                    distractors: {
-                      type: "ARRAY",
-                      items: { type: "STRING" }
-                    }
-                  },
-                  required: ["question", "answer", "type", "distractors"]
-                }
-              }
-            }
-          })
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`API 錯誤，狀態碼: ${response.status}`);
-      }
-
-      const data = await response.json();
-      const jsonText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!jsonText) {
-        throw new Error('API 沒有回傳有效的文字內容。');
-      }
-
-      const parsed = saveSystem.parseJSONText(jsonText);
-      if (parsed.length === 0) {
-        throw new Error('無法將 AI 回傳內容解析為題目列表。');
-      }
-
-      setParsePreview(parsed);
-      alert(`AI 成功產生了 ${parsed.length} 題！請在下方預覽區確認，滿意即可匯入指定字庫。`);
-    } catch (error) {
-      console.error('Gemini API generate content failed', error);
-      alert(`AI 生成失敗：${(error as Error).message}`);
-    } finally {
-      setAiGenerating(false);
-    }
-  };
 
   // Save GAS URL
   const handleSaveGasUrl = () => {
@@ -559,20 +483,7 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
                         >
                           ☁️ Google 試算表同步
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setImportSource('ai');
-                            setParsePreview([]);
-                          }}
-                          className={`px-3 py-1.5 font-bold transition-all border-b-2 ${
-                            importSource === 'ai'
-                              ? 'border-indigo-500 text-indigo-300'
-                              : 'border-transparent text-white/40 hover:text-white'
-                          }`}
-                        >
-                          🤖 AI 智慧生成
-                        </button>
+
                       </div>
 
                       {/* Import Content rendering */}
@@ -712,71 +623,7 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
                         </div>
                       )}
 
-                      {importSource === 'ai' && (
-                        <div className="flex flex-col gap-2.5 bg-[#121528]/80 border border-white/5 p-4 rounded-xl animate-pop">
-                          <span className="text-xs text-white/70 font-extrabold">🤖 AI 智慧題庫產生器 (Gemini API)</span>
-                          
-                          <div className="flex flex-col gap-1 bg-[#0f111a] p-3 rounded-lg border border-white/5">
-                            <label className="text-[10px] text-white/50 font-bold flex justify-between">
-                              <span>請輸入 Gemini API Key</span>
-                              <span
-                                className="text-indigo-400 cursor-pointer"
-                                onClick={() => setShowApiKey(!showApiKey)}
-                              >
-                                {showApiKey ? '隱藏' : '顯示'}
-                              </span>
-                            </label>
-                            <input
-                              type={showApiKey ? 'text' : 'password'}
-                              value={apiKey}
-                              onChange={(e) => handleSaveApiKey(e.target.value)}
-                              placeholder="AIzaSy..."
-                              className="bg-[#0f111a] border border-white/10 rounded px-2.5 py-1.5 text-white text-xs focus:border-indigo-500 focus:outline-none w-full"
-                            />
-                            <p className="text-[9px] text-white/30">僅儲存於您本地電腦的瀏覽器中，安全有保障。</p>
-                          </div>
 
-                          <div className="flex flex-col gap-1">
-                            <label className="text-[10px] text-white/50 font-bold">設定產生主題與要求</label>
-                            <textarea
-                              rows={2}
-                              value={aiTopic}
-                              onChange={(e) => setAiTopic(e.target.value)}
-                              placeholder="請輸入例如：產生 5 題水果單字與 5 題現在時態文法題"
-                              className="bg-[#0f111a] border border-white/10 rounded p-2 text-white text-xs focus:border-indigo-500 focus:outline-none w-full"
-                            />
-                          </div>
-
-                          <div className="flex gap-2 justify-end mt-1">
-                            <button
-                              onClick={handleGenerateAIQuestions}
-                              disabled={aiGenerating}
-                              className="btn-primary text-xs px-4 py-2 flex items-center gap-1.5 cursor-pointer"
-                            >
-                              {aiGenerating ? (
-                                <>
-                                  <span className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-white"></span>
-                                  <span>AI 正在思考並生成題目中...</span>
-                                </>
-                              ) : (
-                                <>
-                                  <span>🪄 使用 Gemini 智慧生成</span>
-                                </>
-                              )}
-                            </button>
-                          </div>
-
-                          <div className="flex justify-end mt-1 border-t border-white/5 pt-2">
-                            <button
-                              onClick={handleImportToLibrary}
-                              disabled={parsePreview.length === 0}
-                              className="btn-secondary text-xs px-4 py-2 bg-emerald-500/10 border-emerald-500/20 text-emerald-300 hover:bg-emerald-500/20"
-                            >
-                              🚀 一鍵匯入選取題目 ({parsePreview.length} 題)
-                            </button>
-                          </div>
-                        </div>
-                      )}
 
                       {/* Preview Table or List Table */}
                       {parsePreview.length > 0 ? (
