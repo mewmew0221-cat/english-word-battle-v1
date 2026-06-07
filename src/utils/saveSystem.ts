@@ -63,7 +63,8 @@ export const DEFAULT_SAVE = (name: string): PlayerSave => ({
     potion: 0,
     super_potion: 0,
     shield: 0,
-    power: 0
+    power: 0,
+    inspiration_potion: 0
   },
   monsterExpPool: 0
 });

@@ -32,11 +32,11 @@ interface BattleArenaProps {
 
 const ELEMENT_LABELS: Record<ElementType, string> = {
   earth: '土(草)',
-  water: '水',
-  fire: '火',
+  water: '水(冰)',
+  fire: '火(熔)',
   wind: '風(雷)',
-  light: '光',
-  dark: '暗'
+  light: '光(聖)',
+  dark: '暗(鬼)'
 };
 
 const getElementEffectSymbols = (type: ElementType, style: 'attack' | 'defense' = 'attack') => {

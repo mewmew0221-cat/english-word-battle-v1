@@ -3,7 +3,7 @@ export type ElementType = 'earth' | 'water' | 'fire' | 'wind' | 'light' | 'dark'
 export interface Skill {
   name: string;
   description: string;
-  effectType: 'petrify' | 'inspiration' | 'burn' | 'shock' | 'heal' | 'curse';
+  effectType: 'petrify' | 'inspiration' | 'burn' | 'shock' | 'heal' | 'curse' | 'slippery';
   duration: number; // Duration in turns, 0 for instant
   value: number; // Value of heal/damage/etc.
 }
@@ -39,11 +39,11 @@ export const MONSTERS: Record<string, Monster> = {
     maxHp: 10,
     imageUrl: new URL('../assets/monsters/aquacat.png', import.meta.url).href,
     skill: {
-      name: '靈感',
-      description: '四回合內，所有答題選項降為「二選一」（大幅降低難度）',
-      effectType: 'inspiration',
-      duration: 4,
-      value: 2 // Option count reduction (e.g. force 2 options)
+      name: '滑溜',
+      description: '對手五回合內不會發動防禦（傷害不會減免）',
+      effectType: 'slippery',
+      duration: 5,
+      value: 0
     }
   },
   pyrofox: {
@@ -137,26 +137,48 @@ export function getRelationship(attacker: ElementType, defender: ElementType): '
 }
 
 /**
- * Get option count based on relationship and skill modifiers
- * Normal: 4
- * Advantage: 3
- * Disadvantage: 5
- * Inspiration skill: override to 2
+/**
+ * Get option count based on elements, phase type, and skill/item status.
+ * - Inspiration active: override to 2 options.
+ * - Light and Dark: mutually counter.
+ *   - Player is Light, Enemy is Dark: Attack = 5, Defense = 3.
+ *   - Player is Dark, Enemy is Light: Attack = 3, Defense = 5.
+ * - Standard elements (Earth, Water, Wind, Fire):
+ *   - Player counters enemy: 3 options.
+ *   - Enemy counters player: 5 options.
+ *   - Neutral: 4 options.
  */
 export function getOptionCount(
-  relationship: 'advantage' | 'disadvantage' | 'neutral',
+  playerElement: ElementType,
+  enemyElement: ElementType,
+  phaseType: 'attack' | 'defense',
   isInspirationActive: boolean
 ): number {
   if (isInspirationActive) {
     return 2;
   }
-  switch (relationship) {
-    case 'advantage':
-      return 3;
-    case 'disadvantage':
-      return 5;
-    case 'neutral':
-    default:
-      return 4;
+
+  // Light and Dark special mutual counter rules
+  if (playerElement === 'light' && enemyElement === 'dark') {
+    return phaseType === 'attack' ? 5 : 3;
   }
+  if (playerElement === 'dark' && enemyElement === 'light') {
+    return phaseType === 'attack' ? 3 : 5;
+  }
+
+  // Standard elements rules
+  const playerCounters = COUNTERS[playerElement] || [];
+  const isPlayerAdvantage = playerCounters.includes(enemyElement);
+
+  const enemyCounters = COUNTERS[enemyElement] || [];
+  const isPlayerDisadvantage = enemyCounters.includes(playerElement);
+
+  if (isPlayerAdvantage) {
+    return 3;
+  }
+  if (isPlayerDisadvantage) {
+    return 5;
+  }
+
+  return 4; // Neutral
 }

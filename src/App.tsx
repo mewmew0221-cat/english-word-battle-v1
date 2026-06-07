@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { MONSTERS, type Monster, getRelationship, getOptionCount, type ElementType } from './data/monsters';
+import { MONSTERS, type Monster, getOptionCount, type ElementType } from './data/monsters';
 import { DEFAULT_QUESTIONS, type Question, getOptionsForQuestion } from './data/questions';
 import { type PlayerSave, saveSystem } from './utils/saveSystem';
 import { BattleArena } from './components/BattleArena';
@@ -11,7 +11,7 @@ type GameState = 'profile-select' | 'monster-select' | 'library-select' | 'battl
 
 interface StatusEffect {
   name: string;
-  type: 'petrify' | 'inspiration' | 'burn' | 'shock';
+  type: 'petrify' | 'inspiration' | 'burn' | 'shock' | 'slippery';
   duration: number;
 }
 
@@ -19,7 +19,8 @@ const SHOP_ITEMS = [
   { id: 'potion', name: '治療劑', icon: '🧪', cost: 15, description: '立即回復自身 2 點血量。' },
   { id: 'super_potion', name: '強力治療劑', icon: '🧪✨', cost: 35, description: '立即回復自身 5 點血量。' },
   { id: 'shield', name: '防護盾', icon: '🛡️', cost: 20, description: '在 3 回合內增加我方 1 點防禦力。' },
-  { id: 'power', name: '強力藥水', icon: '🍷', cost: 20, description: '在 3 回合內增加我方 1 點攻擊力。' }
+  { id: 'power', name: '強力藥水', icon: '🍷', cost: 20, description: '在 3 回合內增加我方 1 點攻擊力。' },
+  { id: 'inspiration_potion', name: '靈感藥水', icon: '💡', cost: 25, description: '在 5 回合內，所有答題選項降為「二選一」。' }
 ] as const;
 
 const ELEMENT_BACKGROUNDS: Record<ElementType, string> = {
@@ -270,6 +271,11 @@ export default function App() {
         setAtkBuffTurns(3);
         setBattleLog("🍷 使用了強力藥水！3 回合內我方攻擊力 +1。");
         break;
+      case 'inspiration_potion':
+        soundManager.playClick();
+        setPlayerEffects((prev) => [...prev, { name: '靈感藥水', type: 'inspiration', duration: 5 }]);
+        setBattleLog("💡 使用了靈感藥水！5 回合內，所有答題選項降為「二選一」。");
+        break;
     }
 
     handleProfileSave({
@@ -354,6 +360,11 @@ export default function App() {
         setPlayerEffects((prev) => [...prev, { name: skill.name, type: 'shock', duration: skill.duration }]);
         setBattleLog(`⚡ 施放【${skill.name}】！雷電護盾就緒，防守成功將引發反擊！`);
         break;
+      case 'slippery':
+        soundManager.playClick();
+        setEnemyEffects((prev) => [...prev, { name: skill.name, type: 'slippery', duration: skill.duration }]);
+        setBattleLog(`💧 施放【${skill.name}】！對手進入滑溜狀態（五回合內無法發動防禦）。`);
+        break;
     }
 
     // After skill is used, immediately start the attack phase
@@ -382,9 +393,8 @@ export default function App() {
     setIsEnemyDefending(false);
 
     // Calculate options count based on relationship
-    const relationship = getRelationship(playerMonster.element, enemyMonster.element);
     const isInspirationActive = playerEffects.some((eff) => eff.type === 'inspiration');
-    const optionCount = getOptionCount(relationship, isInspirationActive);
+    const optionCount = getOptionCount(playerMonster.element, enemyMonster.element, 'attack', isInspirationActive);
 
     const compiledOptions = getOptionsForQuestion(randomQuestion, optionCount);
     setOptions(compiledOptions);
@@ -417,8 +427,9 @@ export default function App() {
 
         const finalPlayerAtk = basePlayerAtk + itemAtkBuff + skillAtkBuff;
         
-        // 50% chance for enemy to defend
-        const computerDefends = Math.random() < 0.5;
+        // 50% chance for enemy to defend (unless slippery is active)
+        const isSlipperyActive = enemyEffects.some((eff) => eff.type === 'slippery');
+        const computerDefends = isSlipperyActive ? false : (Math.random() < 0.5);
         setIsEnemyDefending(computerDefends);
 
         let damage = finalPlayerAtk;
@@ -583,10 +594,9 @@ export default function App() {
         const randomQuestion = pool[Math.floor(Math.random() * pool.length)];
         setCurrentQuestion(randomQuestion);
 
-        // Calculate defense choices: enemy attacks player (but options calculated based on player vs enemy relationship)
-        const relationship = getRelationship(playerMonster.element, enemyMonster.element);
+        // Calculate defense choices: enemy attacks player
         const isInspirationActive = playerEffects.some((eff) => eff.type === 'inspiration');
-        const optionCount = getOptionCount(relationship, isInspirationActive);
+        const optionCount = getOptionCount(playerMonster.element, enemyMonster.element, 'defense', isInspirationActive);
 
         const compiledOptions = getOptionsForQuestion(randomQuestion, optionCount);
         setOptions(compiledOptions);
